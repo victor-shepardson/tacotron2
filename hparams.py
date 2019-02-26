@@ -9,6 +9,7 @@ def create_hparams(hparams_string=None, verbose=False):
         ################################
         # Experiment Parameters        #
         ################################
+        gpu=True,
         epochs=500,
         iters_per_checkpoint=1000,
         seed=1234,
