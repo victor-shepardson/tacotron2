@@ -6,5 +6,8 @@
 #    (for item in $tf_contrib_sos; echo --add-binary $pkg_dir$item:(dirname $item) | string split " "; end)
 
 pyinstaller inference.py -y -p "./waveglow" \
-    --add-data "*.pt:." --hidden-import sklearn.neighbors.typedefs \
-    --hidden-import sklearn.neighbors.quad_tree --hidden-import sklearn.tree --hidden-import sklearn.tree._utils
+    --add-data "*.pt:." --add-data "waveglow/*.py:waveglow" \
+    --hidden-import glow_old \
+    --hidden-import sklearn.neighbors.typedefs \
+    --hidden-import sklearn.neighbors.quad_tree \
+    --hidden-import sklearn.tree --hidden-import sklearn.tree._utils

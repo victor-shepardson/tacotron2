@@ -420,7 +420,7 @@ class Decoder(nn.Module):
 
         return mel_outputs, gate_outputs, alignments
 
-    def inference(self, memory):
+    def inference(self, memory, use_gate=True):
         """ Decoder inference
         PARAMS
         ------
@@ -445,7 +445,7 @@ class Decoder(nn.Module):
             gate_outputs += [gate_output]
             alignments += [alignment]
 
-            if torch.sigmoid(gate_output.data) > self.gate_threshold:
+            if use_gate and torch.sigmoid(gate_output.data) > self.gate_threshold:
                 break
             elif len(mel_outputs) == self.max_decoder_steps:
                 print("Warning! Reached max decoder steps")
@@ -526,11 +526,17 @@ class Tacotron2(nn.Module):
             output_lengths)
 
     def inference(self, inputs):
+        encoder_outputs = self.encode(inputs)
+        return self.decode(encoder_outputs)
+
+    def encode(self, inputs):
         inputs = self.parse_input(inputs)
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
-        encoder_outputs = self.encoder.inference(embedded_inputs)
+        return self.encoder.inference(embedded_inputs)
+
+    def decode(self, encoder_outputs, use_gate=True):
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
-            encoder_outputs)
+            encoder_outputs, use_gate=use_gate)
 
         mel_outputs_postnet = self.postnet(mel_outputs)
         mel_outputs_postnet = mel_outputs + mel_outputs_postnet
