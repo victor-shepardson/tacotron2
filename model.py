@@ -525,9 +525,9 @@ class Tacotron2(nn.Module):
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
             output_lengths)
 
-    def inference(self, inputs):
+    def inference(self, inputs, use_gate=True):
         encoder_outputs = self.encode(inputs)
-        return self.decode(encoder_outputs)
+        return self.decode(encoder_outputs, use_gate=use_gate)
 
     def encode(self, inputs):
         inputs = self.parse_input(inputs)
@@ -538,10 +538,12 @@ class Tacotron2(nn.Module):
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
             encoder_outputs, use_gate=use_gate)
 
-        mel_outputs_postnet = self.postnet(mel_outputs)
-        mel_outputs_postnet = mel_outputs + mel_outputs_postnet
+        mel_outputs_postnet = self.apply_postnet(mel_outputs)
 
         outputs = self.parse_output(
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments])
 
         return outputs
+
+    def apply_postnet(self, spect):
+        return spect + self.postnet(spect)
