@@ -1,4 +1,4 @@
-import warnings
+import warnings, os
 import numpy as np
 from scipy import interpolate, signal
 import torch
@@ -101,8 +101,7 @@ def time_stretch(spect, factor):
     """change rate of spectrogram by linear interpolation.
 
     `factor` is stretch factor, i.e. 0.5 means double speed.
-    negative `factor` will reverse time.
-    operates on torch tensors.
+    negative `factor` will reverse time. operates on torch tensors.
     """
     if factor<0:
         spect = torch.flip(spect, -1)
@@ -110,3 +109,31 @@ def time_stretch(spect, factor):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return F.interpolate(spect, scale_factor=factor, mode='linear')
+
+def load_text(filename):
+    if os.path.isdir(filename):
+        filenames = [f for f in os.listdir(filename) if os.path.isfile(f)]
+        if len(filenames)==0:
+            raise ValueError('textfile directory contains no files')
+        filename = np.random.choice(filenames)
+    with open(filename, 'r') as file:
+        return file.read()
+
+def sample_text(text, lines, words, chars):
+    if lines is not None:
+        text = '\n'.join(sample_chunks(text.splitlines(), lines))
+    if words is not None:
+        text = ' '.join(sample_chunks(text.split(), words))
+    if chars is not None:
+        text = ''.join(sample_chunks(text, chars))
+    return text
+
+def sample_chunks(chunks, n):
+    stride = 1
+    if n<0:
+        stride = -1
+        n *= -1
+    n = min(len(chunks), n)
+    start = np.random.randint(len(chunks)-n) if n<len(chunks) else 0
+    chunks = chunks[start:start+n]
+    return chunks[::stride]
