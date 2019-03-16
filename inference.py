@@ -163,7 +163,8 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
     # pitch shift
     if shift_pitch!=0 or shift_formant!=0:
         spect = to_torch(ut.pitch_shift(
-            to_numpy(spect), shift_pitch, shift_formant
+            to_numpy(spect), shift_pitch, shift_formant,
+            mel_low=hparams.mel_fmin, mel_high=hparams.mel_fmax
             ), device)
     # time stretch
     spect = ut.time_stretch(spect, stretch_time)
@@ -180,7 +181,7 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         spect = spect.expand(channels, -1, -1)
 
     if draft:
-        audio = griffin_lim_synth(spect, hparams)
+        audio = 20*griffin_lim_synth(spect, hparams)
     else:
         with torch.no_grad():
             audio = waveglow.infer(spect, sigma=glow_temperature, verbose=True)
@@ -195,21 +196,20 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         print(f'writing "{outfile}"')
     audio = to_numpy(audio)
 
-    # if audio.shape[0]==1:
-        # audio = audio[0]
-    # write_wav(outfile, audio, hparams.sampling_rate)
     soundfile.write(outfile, audio.T, hparams.sampling_rate, format='WAV')
 
 
-def griffin_lim_synth(spect, hparams):
+def griffin_lim_synth(spect, hparams, n_iters=30):
     S = STFT(filter_length=hparams.filter_length, win_length=hparams.win_length, hop_length=hparams.hop_length)
-    mel_fs = librosa.mel_frequencies(spect.shape[1], hparams.mel_fmin, hparams.mel_fmax)
+    mel_fs = librosa.mel_frequencies(
+        spect.shape[1], hparams.mel_fmin, hparams.mel_fmax)
     spect = np.exp(spect)
     spect = interpolate.interp1d(
         mel_fs, spect, axis=1, fill_value=spect[:, -1, :], bounds_error=False
     )(np.linspace(0, hparams.sampling_rate/2, hparams.filter_length//2+3)[1:-1])
     spect = torch.from_numpy(spect).float()
-    return griffin_lim(spect, S)
+    return griffin_lim(spect, S, n_iters=n_iters, verbose=True)
+
 
 if __name__=='__main__':
     fire.Fire(main)

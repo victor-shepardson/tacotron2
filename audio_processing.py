@@ -56,7 +56,7 @@ def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
     return x
 
 
-def griffin_lim(magnitudes, stft_fn, n_iters=30):
+def griffin_lim(magnitudes, stft_fn, n_iters=30, verbose=False):
     """
     PARAMS
     ------
@@ -69,7 +69,12 @@ def griffin_lim(magnitudes, stft_fn, n_iters=30):
     angles = torch.autograd.Variable(torch.from_numpy(angles))
     signal = stft_fn.inverse(magnitudes, angles).squeeze(1)
 
-    for i in range(n_iters):
+    iters = range(n_iters)
+    if verbose:
+        from tqdm import tqdm
+        iters = tqdm(list(iters), desc='GL step')
+
+    for i in iters:
         _, angles = stft_fn.transform(signal)
         signal = stft_fn.inverse(magnitudes, angles).squeeze(1)
     return signal
