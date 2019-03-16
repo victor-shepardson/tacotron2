@@ -3,28 +3,30 @@
 # > source bundle.fish
 
 # TODO:
-# - multichannel: test pysoundfile
-# - weights: test path params
 # - performance: how hard to get cpu inference faster?
+# - preview: implement faster (e.g. griffin-lim) vocoder?
+# - random seed arg?
 
 import sys, os
 import multiprocessing
 import warnings
 
-# pyinstaller fix -- needs to be before one of these imports apparently
+# pyinstaller fix -- needs to be before one of the subsequent imports apparently
 multiprocessing.freeze_support()
 
 import numpy as np
 import torch
+import soundfile
+import fire
+from scipy import interpolate
+import librosa
 
 from hparams import create_hparams
 from model import Tacotron2
 from train import load_model
 from text import text_to_sequence
-# from librosa.output import write_wav
-import soundfile
-
-import fire
+from stft import STFT
+from audio_processing import griffin_lim
 
 import ultima_tools as ut
 from ultima_tools import to_torch, to_numpy
@@ -35,6 +37,7 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         shift_pitch=0, shift_formant=0, stretch_time=1,
         shuffle_text=0, shuffle_code=0,
         channels=1, decoder_steps=None,
+        draft=False,
         model_dir='.',
         tacotron_weights='tacotron2_statedict.pt',
         waveglow_weights='waveglow_old.pt',
@@ -69,6 +72,7 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         decoder_steps (int): number of spectral frames to render.
             Each frame is about 11 ms. If not provided, tacotron will attempt to
             terminate itself when the text is finished.
+        draft (bool): Use fast Griffin-Lim vocoder instead of WaveGlow.
         model_dir (str): root directory for `tacotron_path` and `waveglow_path`.
         tacotron_path (str): path to tacotron model weights (relative to model_dir).
         waveglow_path (str): path to waveglow model weights (relative to model_dir).
@@ -123,13 +127,13 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
     tacotron.eval()
 
     # #### Load WaveGlow model
-
-    waveglow_path = os.path.join(model_dir, waveglow_weights)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        waveglow = torch.load(waveglow_path, **load_kwargs)['model']
-    waveglow.to(device)
-    waveglow.eval()
+    if not draft:
+        waveglow_path = os.path.join(model_dir, waveglow_weights)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            waveglow = torch.load(waveglow_path, **load_kwargs)['model']
+        waveglow.to(device)
+        waveglow.eval()
 
     # #### Pass text through tacotron
 
@@ -171,11 +175,15 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
     # #### Synthesize audio from spectrogram using WaveGlow
 
     if verbose:
-        print('waveglow vocoder...')
+        print(f'{"griffin-lim" if draft else "waveglow"} vocoder...')
     if decoder_steps is None:
         spect = spect.expand(channels, -1, -1)
-    with torch.no_grad():
-        audio = waveglow.infer(spect, sigma=glow_temperature, verbose=True)
+
+    if draft:
+        audio = griffin_lim_synth(spect, hparams)
+    else:
+        with torch.no_grad():
+            audio = waveglow.infer(spect, sigma=glow_temperature, verbose=True)
 
     # #### write to wav file
 
@@ -191,6 +199,17 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         # audio = audio[0]
     # write_wav(outfile, audio, hparams.sampling_rate)
     soundfile.write(outfile, audio.T, hparams.sampling_rate, format='WAV')
+
+
+def griffin_lim_synth(spect, hparams):
+    S = STFT(filter_length=hparams.filter_length, win_length=hparams.win_length, hop_length=hparams.hop_length)
+    mel_fs = librosa.mel_frequencies(spect.shape[1], hparams.mel_fmin, hparams.mel_fmax)
+    spect = np.exp(spect)
+    spect = interpolate.interp1d(
+        mel_fs, spect, axis=1, fill_value=spect[:, -1, :], bounds_error=False
+    )(np.linspace(0, hparams.sampling_rate/2, hparams.filter_length//2+3)[1:-1])
+    spect = torch.from_numpy(spect).float()
+    return griffin_lim(spect, S)
 
 if __name__=='__main__':
     fire.Fire(main)
