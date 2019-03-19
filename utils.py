@@ -1,18 +1,35 @@
 import numpy as np
-from scipy.io.wavfile import read
+from scipy.io.wavfile import read as wavread
+from librosa.core import load as audioread
 import torch
 
+MAX_WAV_VALUE = 32768.0
 
-def get_mask_from_lengths(lengths):
+def get_mask_from_lengths(lengths, device=None):
     max_len = torch.max(lengths).item()
-    ids = torch.arange(0, max_len, out=torch.cuda.LongTensor(max_len))
+    if device is None:
+        ids = torch.arange(0, max_len, out=torch.cuda.LongTensor(max_len))
+    else:
+        ids = torch.arange(0, max_len, dtype=torch.long, device=device)
     mask = (ids < lengths.unsqueeze(1)).byte()
     return mask
 
 
 def load_wav_to_torch(full_path):
-    sampling_rate, data = read(full_path)
+    sampling_rate, data = wavread(full_path)
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
+
+def load_audio_to_torch(full_path, sampling_rate):
+    """
+    Loads audio data into torch array
+    """
+    try:
+        file_sampling_rate, data = wavread(full_path)
+        assert sampling_rate==file_sampling_rate
+    except Exception:
+        data, _ = audioread(full_path, sr=sampling_rate, mono=True, res_type='kaiser_fast')
+        data *= MAX_WAV_VALUE / max(1, np.max(np.abs(data)))
+    return torch.from_numpy(data).float(), sampling_rate
 
 
 def load_filepaths_and_text(filename, split="|"):

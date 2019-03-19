@@ -26,7 +26,8 @@ def plot_alignment_to_numpy(alignment, info=None):
     fig.canvas.draw()
     data = save_figure_to_numpy(fig)
     plt.close()
-    return data
+    # return data
+    return np.transpose(data, (2, 0, 1))
 
 
 def plot_spectrogram_to_numpy(spectrogram):
@@ -41,7 +42,9 @@ def plot_spectrogram_to_numpy(spectrogram):
     fig.canvas.draw()
     data = save_figure_to_numpy(fig)
     plt.close()
-    return data
+    # return data
+    return np.transpose(data, (2, 0, 1))
+
 
 
 def plot_gate_outputs_to_numpy(gate_targets, gate_outputs):
@@ -58,4 +61,5 @@ def plot_gate_outputs_to_numpy(gate_targets, gate_outputs):
     fig.canvas.draw()
     data = save_figure_to_numpy(fig)
     plt.close()
-    return data
+    # return data
+    return np.transpose(data, (2, 0, 1))

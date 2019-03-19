@@ -105,6 +105,8 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
 
     # #### Setup hparams, gpu
 
+    # torch.set_num_threads(os.cpu_count()-1)
+
     hparams = create_hparams()
     hparams.sampling_rate = 22050
     hparams.gpu = use_gpu

@@ -4,7 +4,7 @@ import torch
 import torch.utils.data
 
 import layers
-from utils import load_wav_to_torch, load_filepaths_and_text
+from utils import load_wav_to_torch, load_audio_to_torch, load_filepaths_and_text
 from text import text_to_sequence
 
 
@@ -36,7 +36,10 @@ class TextMelLoader(torch.utils.data.Dataset):
 
     def get_mel(self, filename):
         if not self.load_mel_from_disk:
-            audio, sampling_rate = load_wav_to_torch(filename)
+            if '.wav' in filename:
+                audio, sampling_rate = load_wav_to_torch(filename)
+            else:
+                audio, sampling_rate = load_audio_to_torch(filename, self.stft.sampling_rate)
             if sampling_rate != self.stft.sampling_rate:
                 raise ValueError("{} {} SR doesn't match target {} SR".format(
                     sampling_rate, self.stft.sampling_rate))
