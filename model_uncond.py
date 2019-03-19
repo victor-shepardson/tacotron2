@@ -466,7 +466,7 @@ class Decoder(nn.Module):
         """
 
         # decoder_input = self.get_go_frame(memory).unsqueeze(0)
-        decoder_input = torch.zeros(1, *decoder_inputs.shape[:2])
+        decoder_input = torch.zeros(1, *decoder_inputs.shape[:2], device=self.device())
         decoder_inputs = self.parse_decoder_inputs(decoder_inputs)
         decoder_inputs = torch.cat((decoder_input, decoder_inputs), dim=0)
         decoder_inputs = self.prenet(decoder_inputs)
