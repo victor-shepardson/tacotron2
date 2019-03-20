@@ -566,9 +566,12 @@ class Tacotron2(nn.Module):
         # input_lengths = to_gpu(input_lengths).long()
         # max_len = torch.max(input_lengths.data).item()
         _, _, mel_padded, gate_padded, output_lengths = batch
-        mel_padded = mel_padded.to(self.device(), dtype=torch.float)
-        gate_padded = gate_padded.to(self.device(), dtype=torch.float)
-        output_lengths = output_lengths.to(self.device(), dtype=torch.long)
+        mel_padded = mel_padded.to(self.device(),
+            non_blocking=True, dtype=torch.float)
+        gate_padded = gate_padded.to(self.device(),
+            non_blocking=True, dtype=torch.float)
+        output_lengths = output_lengths.to(self.device(),
+            non_blocking=True, dtype=torch.long)
 
         # return (
         #     (text_padded, input_lengths, mel_padded, max_len, output_lengths),
