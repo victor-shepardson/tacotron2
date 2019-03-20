@@ -23,12 +23,12 @@ def load_audio_to_torch(full_path, sampling_rate):
     """
     Loads audio data into torch array
     """
-    try:
-        file_sampling_rate, data = wavread(full_path)
-        assert sampling_rate==file_sampling_rate
-    except Exception:
-        data, _ = audioread(full_path, sr=sampling_rate, mono=True, res_type='kaiser_fast')
-        data *= MAX_WAV_VALUE / max(1, np.max(np.abs(data)))
+    # try:
+    #     file_sampling_rate, data = wavread(full_path)
+    #     assert sampling_rate==file_sampling_rate
+    # except Exception:
+    data, _ = audioread(full_path, sr=sampling_rate, mono=True, res_type='kaiser_fast')
+    data *= MAX_WAV_VALUE / max(1, np.max(np.abs(data)))
     return torch.from_numpy(data).float(), sampling_rate
 
 

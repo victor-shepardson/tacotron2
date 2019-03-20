@@ -2,6 +2,8 @@
 
 # python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt',batch_size=1,iters_per_checkpoint=5"
 
+# TODO: discard overlong and low power examples; smaller valid set; stratified samples by length; preconvert to wav; num_workers/pin_memory?
+
 import os
 import time
 import argparse

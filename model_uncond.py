@@ -306,14 +306,14 @@ class Decoder(nn.Module):
         #     B, self.decoder_rnn_dim).zero_())
 
         self.attention_hidden = torch.zeros(
-            B, self.attention_rnn_dim, device=self.device())
+            B, self.attention_rnn_dim, device=self.device(), requires_grad=True)
         self.attention_cell = torch.zeros(
-            B, self.attention_rnn_dim, device=self.device())
+            B, self.attention_rnn_dim, device=self.device(), requires_grad=True)
 
         self.decoder_hidden = torch.zeros(
-            B, self.decoder_rnn_dim, device=self.device())
+            B, self.decoder_rnn_dim, device=self.device(), requires_grad=True)
         self.decoder_cell = torch.zeros(
-            B, self.decoder_rnn_dim, device=self.device())
+            B, self.decoder_rnn_dim, device=self.device(), requires_grad=True)
 
         # mod: remove cumulative attention weighting scheme
         # self.attention_weights = Variable(memory.data.new(
@@ -323,12 +323,14 @@ class Decoder(nn.Module):
         # self.attention_context = Variable(memory.data.new(
         #     B, self.encoder_embedding_dim).zero_())
         self.attention_context = torch.zeros(
-            B, self.encoder_embedding_dim, device=self.device())
+            B, self.encoder_embedding_dim,
+            device=self.device(), requires_grad=True)
 
         # mod: initialize memory/processed_memory with zeros
         # self.memory = memory
         self.memory = torch.zeros(
-            B, 1, self.encoder_embedding_dim, device=self.device())
+            B, 1, self.encoder_embedding_dim,
+            device=self.device(), requires_grad=True)
         self.processed_memory = self.attention_layer.memory_layer(self.memory)
         self.mask = mask
 
@@ -374,7 +376,6 @@ class Decoder(nn.Module):
         max_t = len(alignments)
         alignments = [F.pad(a, (0, max_t-a.size(1))) for a in alignments]
         # (T_out, B) -> (B, T_out)
-        # TODO: pad so these can be stacked
         alignments = torch.stack(alignments).transpose(0, 1)
         # (T_out, B) -> (B, T_out)
         gate_outputs = torch.stack(gate_outputs).transpose(0, 1)
@@ -468,7 +469,8 @@ class Decoder(nn.Module):
 
         # decoder_input = self.get_go_frame(memory).unsqueeze(0)
         decoder_input = torch.zeros(
-            1, *decoder_inputs.shape[:2], device=self.device())
+            1, *decoder_inputs.shape[:2],
+            device=self.device(), requires_grad=True)
         decoder_inputs = self.parse_decoder_inputs(decoder_inputs)
         decoder_inputs = torch.cat((decoder_input, decoder_inputs), dim=0)
         decoder_inputs = self.prenet(decoder_inputs)
@@ -507,7 +509,8 @@ class Decoder(nn.Module):
         alignments: sequence of attention weights from the decoder
         """
         # decoder_input = self.get_go_frame(memory)
-        decoder_input = torch.zeros(B, self.n_mel_channels, device=self.device())
+        decoder_input = torch.zeros(
+            B, self.n_mel_channels, device=self.device(), requires_grad=True)
 
         # self.initialize_decoder_states(memory, mask=None)
         self.initialize_decoder_states(B, mask=None)
