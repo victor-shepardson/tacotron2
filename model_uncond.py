@@ -434,10 +434,9 @@ class Decoder(nn.Module):
             + self.autoattentive_layer(self.attention_context)
             )
 
-        # self.attention_weights_cum += self.attention_weights
-        awc = self.attention_weights.clone()
-        awc[:, :-1] += self.attention_weights_cum
-        self.attention_weights_cum = awc
+        self.attention_weights_cum = self.attention_weights + F.pad(
+            self.attention_weights_cum, (0, 1)
+        )
 
         decoder_input = torch.cat(
             (self.attention_hidden, self.attention_context), -1)
