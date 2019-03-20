@@ -4,7 +4,7 @@
 # CPU test:
 # python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_single.txt',validation_files='filelists/mcv_eo_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True"
 
-# TODO: stratified samples by length;
+# TODO: stratified samples by length; why is attention obsessed with first step?
 
 import os
 import time

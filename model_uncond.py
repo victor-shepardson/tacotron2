@@ -83,7 +83,7 @@ class Attention(nn.Module):
             attention_hidden_state, processed_memory)
 
         if mask is not None:
-            alignment.data.masked_fill_(mask, self.score_mask_value)
+            alignment.data.masked_fill_(mask[:, :alignment.shape[1]], self.score_mask_value)
 
         attention_weights = F.softmax(alignment, dim=1)
         attention_context = torch.bmm(attention_weights.unsqueeze(1), memory)
@@ -452,7 +452,7 @@ class Decoder(nn.Module):
             ), dim=1)
 
     # def forward(self, memory, decoder_inputs, memory_lengths):
-    def forward(self, decoder_inputs):
+    def forward(self, decoder_inputs, decoder_lengths):
         """ Decoder forward pass for training
         PARAMS
         ------
@@ -477,8 +477,11 @@ class Decoder(nn.Module):
 
         # self.initialize_decoder_states(
         #     memory, mask=~get_mask_from_lengths(memory_lengths))
+        # self.initialize_decoder_states(
+        #     decoder_inputs.size(1), mask=None)
         self.initialize_decoder_states(
-            decoder_inputs.size(1), mask=None)
+            decoder_inputs.size(1),
+            mask=~get_mask_from_lengths(decoder_lengths, self.device()))
 
         mel_outputs, gate_outputs, alignments = [], [], []
         while len(mel_outputs) < decoder_inputs.size(0) - 1:
@@ -611,7 +614,8 @@ class Tacotron2(nn.Module):
 
         # mel_outputs, gate_outputs, alignments = self.decoder(
         #     encoder_outputs, targets, memory_lengths=input_lengths)
-        mel_outputs, gate_outputs, alignments = self.decoder(targets)
+        # mel_outputs, gate_outputs, alignments = self.decoder(targets)
+        mel_outputs, gate_outputs, alignments = self.decoder(targets, output_lengths)
 
         mel_outputs_postnet = self.apply_postnet(mel_outputs)
 
