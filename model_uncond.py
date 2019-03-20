@@ -1,6 +1,6 @@
 from math import sqrt
 import torch
-from torch.autograd import Variable
+# from torch.autograd import Variable
 from torch import nn
 from torch.nn import functional as F
 from layers import ConvNorm, LinearNorm

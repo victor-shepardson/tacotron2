@@ -14,6 +14,4 @@ for src, dest in datasets.items():
 
     with open(dest, 'w') as fl:
         for fname, text in zip(data.path, data.sentence):
-            fl.write(
-                f'{data_root}/clips/{fname}.mp3|{text}\n'
-                )
+            fl.write(f'{data_root}/clips/{fname}.mp3|{text}\n')
