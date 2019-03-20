@@ -19,7 +19,7 @@ def load_wav_to_torch(full_path):
     sampling_rate, data = wavread(full_path)
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
-def load_audio_to_torch(full_path, sampling_rate):
+def load_audio_to_torch(full_path, sampling_rate, limit=True, wav_scale=True):
     """
     Loads audio data into torch array
     """
@@ -28,7 +28,10 @@ def load_audio_to_torch(full_path, sampling_rate):
     #     assert sampling_rate==file_sampling_rate
     # except Exception:
     data, _ = audioread(full_path, sr=sampling_rate, mono=True, res_type='kaiser_fast')
-    data *= MAX_WAV_VALUE / max(1, np.max(np.abs(data)))
+    if limit:
+        data /= max(1, np.max(np.abs(data)))
+    if wav_scale:
+        data *= MAX_WAV_VALUE
     return torch.from_numpy(data).float(), sampling_rate
 
 

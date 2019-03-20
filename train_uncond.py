@@ -1,8 +1,10 @@
-# python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt'"
+# GPU train:
+# python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt',batch_size=14,iters_per_checkpoint=300,load_mel_from_disk=True"
 
-# python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt',batch_size=1,iters_per_checkpoint=5"
+# CPU test:
+# python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_single.txt',validation_files='filelists/mcv_eo_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True"
 
-# TODO: discard overlong and low power examples; smaller valid set; stratified samples by length; preconvert to wav; num_workers/pin_memory?
+# TODO: stratified samples by length;
 
 import os
 import time
