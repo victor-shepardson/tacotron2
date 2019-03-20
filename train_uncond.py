@@ -2,7 +2,7 @@
 
 # python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt',batch_size=1,iters_per_checkpoint=5"
 
-# TODO: discard overlong and low power examples; smaller valid set; stratified samples by length; preconvert to wav; num_workers/pin_memory?
+# TODO: discard overlong and low power examples; smaller valid set; stratified samples by length; preconvert to spect; move async device copy to collate?
 
 import os
 import time
@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 from fp16_optimizer import FP16_Optimizer
 
 from model_uncond import Tacotron2
-from data_utils import TextMelLoader, TextMelCollate
+from data_utils import TextMelLoader, MelCollate
 from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
 from hparams import create_hparams
@@ -56,11 +56,11 @@ def init_distributed(hparams, n_gpus, rank, group_name):
     print("Done initializing distributed")
 
 
-def prepare_dataloaders(hparams):
+def prepare_dataloaders(hparams, model):
     # Get data, data loaders and collate function ready
     trainset = TextMelLoader(hparams.training_files, hparams)
     valset = TextMelLoader(hparams.validation_files, hparams)
-    collate_fn = TextMelCollate(hparams.n_frames_per_step)
+    collate_fn = MelCollate(hparams.n_frames_per_step, model)
 
     train_sampler = DistributedSampler(trainset) \
         if hparams.distributed_run else None
@@ -151,7 +151,8 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
 
         val_loss = 0.0
         for i, batch in enumerate(val_loader):
-            x, y = model.parse_batch(batch)
+            # x, y = model.parse_batch(batch)
+            x, y = batch
             y_pred = model(x)
             loss = criterion(y_pred, y)
             if distributed_run:
@@ -202,7 +203,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     logger = prepare_directories_and_logger(
         output_directory, log_directory, rank)
 
-    train_loader, valset, collate_fn = prepare_dataloaders(hparams)
+    train_loader, valset, collate_fn = prepare_dataloaders(hparams, model)
 
     # Load checkpoint if one exists
     iteration = 0
@@ -228,7 +229,8 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 param_group['lr'] = learning_rate
 
             model.zero_grad()
-            x, y = model.parse_batch(batch)
+            # x, y = model.parse_batch(batch)
+            x, y = batch
             y_pred = model(x)
 
             loss = criterion(y_pred, y)
