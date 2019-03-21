@@ -413,7 +413,7 @@ class Decoder(nn.Module):
         attention_weights:
         """
         #bypass teacher forcing
-        if hasattr(self, 'prev_output') and torch.rand() > 0.5:
+        if hasattr(self, 'prev_output') and torch.rand(1) > 0.5:
             decoder_input = self.prenet(self.prev_output)
 
         cell_input = torch.cat((decoder_input, self.attention_context), -1)
