@@ -6,6 +6,8 @@
 
 # TODO: stratified samples by length for better GPU utilization
 # TODO: why is attention obsessed with first few steps?
+# TODO: understand nondeterminism at inference
+# TODO: try annealing teacher forcing
 
 import os
 import time

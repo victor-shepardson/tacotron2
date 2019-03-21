@@ -412,6 +412,10 @@ class Decoder(nn.Module):
         gate_output: gate output energies
         attention_weights:
         """
+        #bypass teacher forcing
+        if hasattr(self, 'prev_output') and torch.rand() > 0.5:
+            decoder_input = self.prenet(self.prev_output)
+
         cell_input = torch.cat((decoder_input, self.attention_context), -1)
         self.attention_hidden, self.attention_cell = self.attention_rnn(
             cell_input, (self.attention_hidden, self.attention_cell))
@@ -453,6 +457,9 @@ class Decoder(nn.Module):
             decoder_hidden_attention_context)
 
         gate_prediction = self.gate_layer(decoder_hidden_attention_context)
+
+        self.prev_output = decoder_output.detach()
+
         return (decoder_output, gate_prediction, self.attention_weights)
 
     def update_memory(self):
