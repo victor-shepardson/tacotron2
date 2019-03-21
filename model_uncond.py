@@ -434,6 +434,7 @@ class Decoder(nn.Module):
             self.attention_context
             + self.autoattentive_layer(self.attention_context)
             )
+        self.update_memory()
 
         self.attention_weights_cum = self.attention_weights + F.pad(
             self.attention_weights_cum, (0, 1)
@@ -454,8 +455,6 @@ class Decoder(nn.Module):
             decoder_hidden_attention_context)
 
         gate_prediction = self.gate_layer(decoder_hidden_attention_context)
-
-        self.prev_output = decoder_output.detach()
 
         return (decoder_output, gate_prediction, self.attention_weights)
 
@@ -523,8 +522,6 @@ class Decoder(nn.Module):
             mel_outputs += [mel_output.squeeze(1)]
             gate_outputs += [gate_output.squeeze()]
             alignments += [attention_weights]
-            self.update_memory()
-
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
             mel_outputs, gate_outputs, alignments)
@@ -546,7 +543,7 @@ class Decoder(nn.Module):
         """
         # decoder_input = self.get_go_frame(memory)
         decoder_input = torch.zeros(
-            B, self.n_mel_channels, device=self.device(), requires_grad=True)
+            B, self.n_mel_channels, device=self.device())
 
         # self.initialize_decoder_states(memory, mask=None)
         self.initialize_decoder_states(B, mask=None)
@@ -567,7 +564,6 @@ class Decoder(nn.Module):
                 break
 
             decoder_input = mel_output
-            self.update_memory()
 
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
@@ -648,7 +644,8 @@ class Tacotron2(nn.Module):
         # mel_outputs, gate_outputs, alignments = self.decoder(
         #     encoder_outputs, targets, memory_lengths=input_lengths)
         # mel_outputs, gate_outputs, alignments = self.decoder(targets)
-        mel_outputs, gate_outputs, alignments = self.decoder(targets, output_lengths)
+        mel_outputs, gate_outputs, alignments = self.decoder(
+            targets, output_lengths)
 
         mel_outputs_postnet = self.apply_postnet(mel_outputs)
 

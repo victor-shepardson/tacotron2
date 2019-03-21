@@ -7,7 +7,7 @@
 # TODO: stratified samples by length for better GPU utilization
 # TODO: why is attention obsessed with first few steps?
 # TODO: understand nondeterminism at inference
-# TODO: try annealing teacher forcing
+# TODO: teacher forcing hparam/annealing
 
 import os
 import time
@@ -158,7 +158,8 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         for i, batch in enumerate(val_loader):
             x, y = model.parse_batch(batch)
             y_pred = model(x)
-            loss = criterion(y_pred, y)
+            loss, mel_loss, gate_loss = criterion(y_pred, y, return_parts=True)
+
             if distributed_run:
                 reduced_val_loss = reduce_tensor(loss.data, n_gpus).item()
             else:
@@ -169,7 +170,9 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
     model.train()
     if rank == 0:
         print("Validation loss {}: {:9f}  ".format(iteration, reduced_val_loss))
-        logger.log_validation(reduced_val_loss, model, y, y_pred, iteration)
+        logger.log_validation(
+            reduced_val_loss, model, y, y_pred, iteration,
+            loss_parts=(mel_loss, gate_loss))
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
@@ -236,7 +239,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             x, y = model.parse_batch(batch)
             y_pred = model(x)
 
-            loss = criterion(y_pred, y)
+            loss, mel_loss, gate_loss = criterion(y_pred, y, return_parts=True)
             if hparams.distributed_run:
                 reduced_loss = reduce_tensor(loss.data, n_gpus).item()
             else:
@@ -259,7 +262,8 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 print("Train loss {} {:.6f} Grad Norm {:.6f} {:.2f}s/it".format(
                     iteration, reduced_loss, grad_norm, duration))
                 logger.log_training(
-                    reduced_loss, grad_norm, learning_rate, duration, iteration)
+                    reduced_loss, grad_norm, learning_rate, duration, iteration,
+                    loss_parts=(mel_loss, gate_loss))
 
             if not overflow and (iteration % hparams.iters_per_checkpoint == 0):
                 validate(model, criterion, valset, iteration,
