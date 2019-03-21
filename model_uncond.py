@@ -412,9 +412,6 @@ class Decoder(nn.Module):
         gate_output: gate output energies
         attention_weights:
         """
-        #bypass teacher forcing
-        if hasattr(self, 'prev_output') and torch.rand(1) > 0.5:
-            decoder_input = self.prenet(self.prev_output)
 
         cell_input = torch.cat((decoder_input, self.attention_context), -1)
         self.attention_hidden, self.attention_cell = self.attention_rnn(
@@ -514,13 +511,20 @@ class Decoder(nn.Module):
 
         mel_outputs, gate_outputs, alignments = [], [], []
         while len(mel_outputs) < decoder_inputs.size(0) - 1:
-            decoder_input = decoder_inputs[len(mel_outputs)]
+            # decoder_input = decoder_inputs[len(mel_outputs)]
+            if len(mel_outputs) and torch.rand(1) > 0.5: #bypass teacher forcing
+                decoder_input = self.prenet(mel_output.detach())
+            else:
+                decoder_input = decoder_inputs[len(mel_outputs)]
+
             mel_output, gate_output, attention_weights = (
                 self.decode(decoder_input))
+
             mel_outputs += [mel_output.squeeze(1)]
             gate_outputs += [gate_output.squeeze()]
             alignments += [attention_weights]
             self.update_memory()
+
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
             mel_outputs, gate_outputs, alignments)
