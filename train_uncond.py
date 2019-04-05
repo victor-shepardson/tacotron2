@@ -1,5 +1,5 @@
 # GPU train:
-# python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt',batch_size=14,iters_per_checkpoint=300,load_mel_from_disk=True"
+# python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_eo_train_filelist.txt',validation_files='filelists/mcv_eo_val_filelist.txt',batch_size=14,iters_per_checkpoint=300,load_mel_from_disk=True"
 
 # CPU test:
 # python train_uncond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_single.txt',validation_files='filelists/mcv_eo_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True"
@@ -7,7 +7,9 @@
 # TODO: stratified samples by length for better GPU utilization
 # TODO: why is attention obsessed with first few steps?
 # TODO: understand nondeterminism at inference
-# TODO: teacher forcing hparam/annealing
+# TODO: teacher forcing hparam/annealing, performance, viz
+# TODO: try mixture density loss?
+# TODO: rethink autoattention
 
 import os
 import time

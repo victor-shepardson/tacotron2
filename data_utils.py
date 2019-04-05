@@ -26,13 +26,22 @@ class TextMelLoader(torch.utils.data.Dataset):
             hparams.mel_fmax)
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
+        self.n_speakers = hparams.n_speakers
+        self.n_languages = hparams.n_languages
 
-    def get_mel_text_pair(self, audiopath_and_text):
+    def get_data_tuple(self, audiopath_and_text):
         # separate filename and text
-        audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
+        audiopath, text = audiopath_and_text[:2]
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
-        return (text, mel)
+        r = [text, mel]
+        if len(audiopath_and_text) > 2:
+            speaker = audiopath_and_text[2]
+            r.append(speaker)
+        if len(audiopath_and_text) > 3:
+            language = audiopath_and_text[3]
+            r.append(language)
+        return r
 
     def get_mel(self, filename):
         if not self.load_mel_from_disk:
@@ -61,7 +70,7 @@ class TextMelLoader(torch.utils.data.Dataset):
         return text_norm
 
     def __getitem__(self, index):
-        return self.get_mel_text_pair(self.audiopaths_and_text[index])
+        return self.get_data_tuple(self.audiopaths_and_text[index])
 
     def __len__(self):
         return len(self.audiopaths_and_text)
@@ -77,7 +86,7 @@ class TextMelCollate():
         """Collate's training batch from normalized text and mel-spectrogram
         PARAMS
         ------
-        batch: [text_normalized, mel_normalized]
+        batch: [text_normalized, mel_normalized] (+speaker, language)
         """
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
@@ -110,5 +119,20 @@ class TextMelCollate():
             gate_padded[i, mel.size(1)-1:] = 1
             output_lengths[i] = mel.size(1)
 
-        return text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths
+        r = [text_padded, input_lengths, mel_padded, gate_padded, output_lengths]
+
+        if len(batch[0]) > 2:
+            speaker = torch.LongTensor(len(batch))
+            for i in range(len(ids_sorted_decreasing)):
+                spk = int(batch[ids_sorted_decreasing[i]][2])
+                speaker[i] = spk
+            r.append(speaker)
+
+        if len(batch[0]) > 3:
+            language = torch.LongTensor(len(batch))
+            for i in range(len(ids_sorted_decreasing)):
+                lang = int(batch[ids_sorted_decreasing[i]][3])
+                language[i] = lang
+            r.append(language)
+
+        return r

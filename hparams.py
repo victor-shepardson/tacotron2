@@ -58,6 +58,8 @@ def create_hparams(hparams_string=None, verbose=False):
         ################################
         n_symbols=len(symbols),
         symbols_embedding_dim=512,
+        n_languages=1, # cond model only
+        language_embedding_dim=0, # cond model only
 
         # Encoder parameters
         encoder_kernel_size=5,
@@ -72,6 +74,8 @@ def create_hparams(hparams_string=None, verbose=False):
         gate_threshold=0.5,
         p_attention_dropout=0.1,
         p_decoder_dropout=0.1,
+        n_speakers=1, # cond model only
+        speaker_embedding_dim=0, # cond model only
 
         # Attention parameters
         attention_rnn_dim=1024,
