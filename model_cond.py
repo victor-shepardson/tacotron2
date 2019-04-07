@@ -156,9 +156,12 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         convolutions = []
-        for _ in range(hparams.encoder_n_convolutions):
+        for i in range(hparams.encoder_n_convolutions):
+            in_size = (
+                hparams.encoder_embedding_dim
+                + (i==0)*hparams.language_embedding_dim)
             conv_layer = nn.Sequential(
-                ConvNorm(hparams.encoder_embedding_dim,
+                ConvNorm(in_size,
                          hparams.encoder_embedding_dim,
                          kernel_size=hparams.encoder_kernel_size, stride=1,
                          padding=int((hparams.encoder_kernel_size - 1) / 2),
@@ -488,8 +491,10 @@ class Tacotron2(nn.Module):
         self.symbol_embedding = nn.Embedding(
             hparams.n_symbols, hparams.symbols_embedding_dim)
         self.speaker_embedding = nn.Embedding(
-            hparams.n_speakers, hparams.speaker_embedding_dim
-        )
+            hparams.n_speakers, hparams.speaker_embedding_dim)
+        self.language_embedding = nn.Embedding(
+            hparams.n_languages, hparams.language_embedding_dim)
+
         def emb_init(n, dim):
             return sqrt(3) * sqrt(2 / (n + dim))
         sym_init = emb_init(hparams.n_symbols, hparams.symbols_embedding_dim)
@@ -544,18 +549,22 @@ class Tacotron2(nn.Module):
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
 
         embedded_inputs = self.symbol_embedding(inputs).transpose(1, 2)
+        embedded_lang = self.language_embedding(language)
 
-        #TODO: embedded language
+        encoder_inputs = torch.cat((
+            embedded_inputs,
+            embedded_lang.unsqueeze(-1).expand(-1, -1, embedded_inputs.shape[-1])),
+            dim=1)
 
-        encoder_outputs = self.encoder(embedded_inputs, input_lengths)
+        encoder_outputs = self.encoder(
+            encoder_inputs, input_lengths)
 
         embedded_speaker = self.speaker_embedding(speaker)
 
         mel_outputs, gate_outputs, alignments = self.decoder(
             encoder_outputs, targets, memory_lengths=input_lengths, speaker=embedded_speaker)
 
-        mel_outputs_postnet = self.postnet(mel_outputs)
-        mel_outputs_postnet = mel_outputs + mel_outputs_postnet
+        mel_outputs_postnet = self.apply_postnet(mel_outputs)
 
         return self.parse_output(
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
@@ -563,28 +572,31 @@ class Tacotron2(nn.Module):
 
 
     def inference(self, inputs, use_gate=True):
+        """inference w/ categorical language+speaker"""
         inputs, speaker, language = self.parse_input(inputs)
-        encoder_outputs = self.encode(inputs, language)
 
+        embedded_lang = self.language_embedding(language)
+        encoder_outputs = self.encode(inputs, embedded_lang)
         embedded_speaker = self.speaker_embedding(speaker)
-
         return self.decode(encoder_outputs, embedded_speaker, use_gate=use_gate)
 
-    def encode(self, inputs, language):
+    def encode(self, inputs, embedded_lang):
+        """just encoder with embedded language"""
         embedded_inputs = self.symbol_embedding(inputs).transpose(1, 2)
 
-        return self.encoder.inference(embedded_inputs)
+        encoder_inputs = torch.cat((
+            embedded_inputs,
+            embedded_lang.unsqueeze(-1).expand(-1, -1, embedded_inputs.shape[-1])))
+        return self.encoder.inference(encoder_inputs)
 
     def decode(self, encoder_outputs, embedded_speaker, use_gate=True):
+        """just decoder with embedded speaker"""
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
             encoder_outputs, embedded_speaker, use_gate=use_gate)
 
         mel_outputs_postnet = self.apply_postnet(mel_outputs)
-
-        outputs = self.parse_output(
+        return self.parse_output(
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments])
-
-        return outputs
 
     def apply_postnet(self, spect):
         return spect + self.postnet(spect)
