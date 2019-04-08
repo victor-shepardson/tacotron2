@@ -158,8 +158,9 @@ class Encoder(nn.Module):
         convolutions = []
         for i in range(hparams.encoder_n_convolutions):
             in_size = (
-                hparams.encoder_embedding_dim
-                + (i==0)*hparams.language_embedding_dim)
+                hparams.symbols_embedding_dim + hparams.language_embedding_dim
+                if i==0 else
+                hparams.encoder_embedding_dim)
             conv_layer = nn.Sequential(
                 ConvNorm(in_size,
                          hparams.encoder_embedding_dim,
@@ -175,8 +176,13 @@ class Encoder(nn.Module):
                             batch_first=True, bidirectional=True)
 
     def forward(self, x, input_lengths):
-        for conv in self.convolutions:
-            x = F.dropout(F.relu(conv(x)), 0.5, self.training)
+        x = F.dropout(F.relu(self.convolutions[0](x)), 0.2, self.training)
+        x_res = x
+        for conv in self.convolutions[1:]:
+            x_res = F.dropout(F.relu(conv(x_res)), 0.5, self.training)
+        x = x + x_res
+        # for conv in self.convolutions:
+        #     x = F.dropout(F.relu(conv(x)), 0.5, self.training)
 
         x = x.transpose(1, 2)
 
@@ -226,7 +232,8 @@ class Decoder(nn.Module):
         self.attention_rnn = nn.LSTMCell(
             hparams.prenet_dim
             + hparams.encoder_embedding_dim
-            + hparams.speaker_embedding_dim,
+            + hparams.speaker_embedding_dim
+            + hparams.language_embedding_dim,
             hparams.attention_rnn_dim)
 
         self.attention_layer = Attention(
@@ -263,7 +270,7 @@ class Decoder(nn.Module):
             B, self.n_mel_channels * self.n_frames_per_step).zero_())
         return decoder_input
 
-    def initialize_decoder_states(self, memory, mask, speaker):
+    def initialize_decoder_states(self, memory, mask, speaker, language):
         """ Initializes attention rnn states, decoder rnn states, attention
         weights, attention cumulative weights, attention context, stores memory
         and stores processed memory
@@ -272,6 +279,7 @@ class Decoder(nn.Module):
         memory: Encoder outputs
         mask: Mask for padded data if training, expects None for inference
         speaker: speaker embedding
+        language: language embedding
         """
         B = memory.size(0)
         MAX_TIME = memory.size(1)
@@ -297,6 +305,7 @@ class Decoder(nn.Module):
         self.processed_memory = self.attention_layer.memory_layer(memory)
         self.mask = mask
         self.speaker = speaker
+        self.language = language
 
     def parse_decoder_inputs(self, decoder_inputs):
         """ Prepares decoder inputs, i.e. mel outputs
@@ -363,7 +372,7 @@ class Decoder(nn.Module):
         attention_weights:
         """
         cell_input = torch.cat((
-            decoder_input, self.attention_context, self.speaker#.unsqueeze(-1)
+            decoder_input, self.attention_context, self.speaker, self.language
             ), -1)
         self.attention_hidden, self.attention_cell = self.attention_rnn(
             cell_input, (self.attention_hidden, self.attention_cell))
@@ -399,7 +408,7 @@ class Decoder(nn.Module):
         gate_prediction = self.gate_layer(decoder_hidden_attention_context)
         return decoder_output, gate_prediction, self.attention_weights
 
-    def forward(self, memory, decoder_inputs, memory_lengths, speaker):
+    def forward(self, memory, decoder_inputs, memory_lengths, speaker, language):
         """ Decoder forward pass for training
         PARAMS
         ------
@@ -407,6 +416,7 @@ class Decoder(nn.Module):
         decoder_inputs: Decoder inputs for teacher forcing. i.e. mel-specs
         memory_lengths: Encoder output lengths for attention masking.
         speaker: batch of speaker embeddings
+        language: batch of language embeddings
 
         RETURNS
         -------
@@ -423,7 +433,7 @@ class Decoder(nn.Module):
         self.initialize_decoder_states(
             memory, mask=~get_mask_from_lengths(
                 memory_lengths, device=memory.device),
-            speaker=speaker)
+            speaker=speaker, language=language)
 
         mel_outputs, gate_outputs, alignments = [], [], []
         while len(mel_outputs) < decoder_inputs.size(0) - 1:
@@ -439,12 +449,13 @@ class Decoder(nn.Module):
 
         return mel_outputs, gate_outputs, alignments
 
-    def inference(self, memory, speaker, use_gate=True):
+    def inference(self, memory, speaker, language, use_gate=True):
         """ Decoder inference
         PARAMS
         ------
         memory: Encoder outputs
         speaker: speaker embeddings
+        language: language embeddings
         use_gate: when False, ignore gate and always run to max_steps.
 
         RETURNS
@@ -455,7 +466,8 @@ class Decoder(nn.Module):
         """
         decoder_input = self.get_go_frame(memory)
 
-        self.initialize_decoder_states(memory, mask=None, speaker=speaker)
+        self.initialize_decoder_states(memory, mask=None,
+            speaker=speaker, language=language)
 
         mel_outputs, gate_outputs, alignments = [], [], []
         while True:
@@ -501,6 +513,8 @@ class Tacotron2(nn.Module):
         self.symbol_embedding.weight.data.uniform_(-sym_init, sym_init)
         spk_init = emb_init(hparams.n_speakers, hparams.speaker_embedding_dim)
         self.speaker_embedding.weight.data.uniform_(-spk_init, spk_init)
+        lang_init = emb_init(hparams.n_languages, hparams.language_embedding_dim)
+        self.language_embedding.weight.data.uniform_(-lang_init, lang_init)
 
         self.encoder = Encoder(hparams)
         self.decoder = Decoder(hparams)
@@ -512,6 +526,7 @@ class Tacotron2(nn.Module):
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
             output_lengths, speaker, language = batch
+        # print(speaker, language)
         text_padded = to_gpu(text_padded).long()
         input_lengths = to_gpu(input_lengths).long()
         max_len = torch.max(input_lengths.data).item()
@@ -556,13 +571,12 @@ class Tacotron2(nn.Module):
             embedded_lang.unsqueeze(-1).expand(-1, -1, embedded_inputs.shape[-1])),
             dim=1)
 
-        encoder_outputs = self.encoder(
-            encoder_inputs, input_lengths)
+        encoder_outputs = self.encoder(encoder_inputs, input_lengths)
 
         embedded_speaker = self.speaker_embedding(speaker)
 
         mel_outputs, gate_outputs, alignments = self.decoder(
-            encoder_outputs, targets, memory_lengths=input_lengths, speaker=embedded_speaker)
+            encoder_outputs, targets, memory_lengths=input_lengths, speaker=embedded_speaker, language=embedded_lang)
 
         mel_outputs_postnet = self.apply_postnet(mel_outputs)
 
@@ -574,11 +588,11 @@ class Tacotron2(nn.Module):
     def inference(self, inputs, use_gate=True):
         """inference w/ categorical language+speaker"""
         inputs, speaker, language = self.parse_input(inputs)
-
         embedded_lang = self.language_embedding(language)
         encoder_outputs = self.encode(inputs, embedded_lang)
         embedded_speaker = self.speaker_embedding(speaker)
-        return self.decode(encoder_outputs, embedded_speaker, use_gate=use_gate)
+        return self.decode(encoder_outputs, embedded_speaker, embedded_lang,
+            use_gate=use_gate)
 
     def encode(self, inputs, embedded_lang):
         """just encoder with embedded language"""
@@ -586,13 +600,15 @@ class Tacotron2(nn.Module):
 
         encoder_inputs = torch.cat((
             embedded_inputs,
-            embedded_lang.unsqueeze(-1).expand(-1, -1, embedded_inputs.shape[-1])))
+            embedded_lang.unsqueeze(-1).expand(-1, -1, embedded_inputs.shape[-1])),
+            dim=1)
         return self.encoder.inference(encoder_inputs)
 
-    def decode(self, encoder_outputs, embedded_speaker, use_gate=True):
+    def decode(self, encoder_outputs, embedded_speaker, embedded_lang,
+            use_gate=True):
         """just decoder with embedded speaker"""
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
-            encoder_outputs, embedded_speaker, use_gate=use_gate)
+            encoder_outputs, embedded_speaker, embedded_lang, use_gate=use_gate)
 
         mel_outputs_postnet = self.apply_postnet(mel_outputs)
         return self.parse_output(

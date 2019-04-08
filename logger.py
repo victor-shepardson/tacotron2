@@ -1,5 +1,5 @@
 import random
-import torch.nn.functional as F
+import torch
 from tensorboardX import SummaryWriter
 from plotting_utils import plot_alignment_to_numpy, plot_spectrogram_to_numpy
 from plotting_utils import plot_gate_outputs_to_numpy
@@ -38,7 +38,7 @@ class Tacotron2Logger(SummaryWriter):
             self.add_histogram(tag, value.data.cpu().numpy(), iteration)
 
         # plot alignment, mel target and predicted, gate target and predicted
-        idx = random.randint(0, alignments.size(0) - 1)
+        idx = 0#random.randint(0, alignments.size(0) - 1)
         self.add_image(
             "log10(alignment+1e-3)",
             plot_alignment_to_numpy(
@@ -61,5 +61,5 @@ class Tacotron2Logger(SummaryWriter):
             "gate",
             plot_gate_outputs_to_numpy(
                 gate_targets[idx].data.cpu().numpy(),
-                F.sigmoid(gate_outputs[idx]).data.cpu().numpy()),
+                torch.sigmoid(gate_outputs[idx]).data.cpu().numpy()),
             iteration)
