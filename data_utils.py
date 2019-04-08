@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import pandas as pd
 import torch
 import torch.utils.data
 
@@ -7,6 +8,23 @@ import layers
 from utils import load_wav_to_torch, load_audio_to_torch, load_filepaths_and_text
 from text import text_to_sequence
 
+class StratifiedSampler(torch.utils.data.Sampler):
+    def __init__(self, var):
+        self.var = pd.Series(var)
+        self.vc = self.var.value_counts()
+
+    def __iter__(self):
+        def gen_samples():
+            d = {c: np.random.permutation(g.index)
+                 for c,g in self.var.groupby(self.var)}
+            for k in range(self.vc.min()):
+                for c in np.random.permutation(list(d)):
+                    yield d[c][k]
+        return gen_samples()
+
+    def __len__(self):
+        # one epoch is smallest class * number of classes
+        return len(self.vc)*self.vc.min()
 
 class TextMelLoader(torch.utils.data.Dataset):
     """
@@ -25,9 +43,7 @@ class TextMelLoader(torch.utils.data.Dataset):
             hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
             hparams.mel_fmax)
         random.seed(1234)
-        random.shuffle(self.audiopaths_and_text)
-        self.n_speakers = hparams.n_speakers
-        self.n_languages = hparams.n_languages
+        # random.shuffle(self.audiopaths_and_text)
 
     def get_data_tuple(self, audiopath_and_text):
         # separate filename and text
@@ -35,12 +51,13 @@ class TextMelLoader(torch.utils.data.Dataset):
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
         r = [text, mel]
-        if len(audiopath_and_text) > 2:
-            speaker = audiopath_and_text[2]
-            r.append(speaker)
-        if len(audiopath_and_text) > 3:
-            language = audiopath_and_text[3]
-            r.append(language)
+        r += audiopath_and_text[2:]
+        # if len(audiopath_and_text) > 2:
+        #     speaker = audiopath_and_text[2]
+        #     r.append(speaker)
+        # if len(audiopath_and_text) > 3:
+        #     language = audiopath_and_text[3]
+        #     r.append(language)
         return r
 
     def get_mel(self, filename):

@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 from fp16_optimizer import FP16_Optimizer
 
 from model_cond import Tacotron2
-from data_utils import TextMelLoader, TextMelCollate
+from data_utils import TextMelLoader, TextMelCollate, StratifiedSampler
 from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
 from hparams import create_hparams
@@ -65,17 +65,20 @@ def prepare_dataloaders(hparams):
     valset = TextMelLoader(hparams.validation_files, hparams)
     collate_fn = TextMelCollate(hparams.n_frames_per_step)
 
-    train_sampler = DistributedSampler(trainset) \
-        if hparams.distributed_run else None
-
+    train_sampler = (
+        DistributedSampler(trainset)
+        if hparams.distributed_run else
+        # stratified by language
+        StratifiedSampler((item[-1] for item in trainset))
+        )
     # train_loader = DataLoader(trainset, num_workers=1, shuffle=False,
     #                           sampler=train_sampler,
     #                           batch_size=hparams.batch_size, pin_memory=False,
     #                           drop_last=True, collate_fn=collate_fn)
-    train_loader = DataLoader(trainset, num_workers=4, shuffle=True,
-                              sampler=train_sampler,
-                              batch_size=hparams.batch_size, pin_memory=True,
-                              drop_last=True, collate_fn=collate_fn)
+    train_loader = DataLoader(
+        trainset, batch_size=hparams.batch_size, drop_last=True,
+        num_workers=4, pin_memory=True, #shuffle=True,
+        collate_fn=collate_fn, sampler=train_sampler)
     return train_loader, valset, collate_fn
 
 
