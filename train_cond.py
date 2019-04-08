@@ -1,5 +1,5 @@
 # GPU train:
-# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=64,iters_per_checkpoint=300,load_mel_from_disk=True,n_speakers=117,speaker_embedding_dim=32,n_languages=4,language_embedding_dim=4,text_cleaners=['transliteration_cleaners']"
+# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=64,iters_per_checkpoint=100,load_mel_from_disk=True,n_speakers=117,speaker_embedding_dim=32,n_languages=4,language_embedding_dim=8,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4"
 
 # CPU test:
 # python train_cond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_single.txt',validation_files='filelists/mcv_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True,n_speakers=60,speaker_embedding_dim=32,n_languages=2,language_embedding_dim=4,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4"
@@ -114,7 +114,8 @@ def warm_start_model(checkpoint_path, model):
     state_dict = {
         k:v for k,v in state_dict.items()
         if 'decoder.attention_rnn' not in k and 'decoder.decoder_rnn' not in k
-        and 'encoder.convolutions.0' not in k and 'symbol_embedding' not in k}
+        and 'encoder.convolutions.0' not in k and 'symbol_embedding' not in k
+        and 'attention' not in k}
     model.load_state_dict(state_dict, False)
     # checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     # model.load_state_dict(checkpoint_dict['state_dict'])

@@ -29,6 +29,25 @@ def plot_alignment_to_numpy(alignment, info=None):
     # return data
     return np.transpose(data, (2, 0, 1))
 
+def plot_alignments_to_numpy(alignments, info=None):
+    w, h = 4, 4
+    fig, axs = plt.subplots(w, h, figsize=(12, 12))
+    for ax, alignment in zip(axs.flatten(), alignments):
+        im = ax.imshow(alignment, aspect='auto', origin='lower',
+                       interpolation='none')
+        # xlabel = 'Decoder timestep'
+        # if info is not None:
+            # xlabel += '\n\n' + info
+        # plt.xlabel(xlabel)
+        # plt.ylabel('Encoder timestep')
+    # plt.tight_layout()
+
+    fig.canvas.draw()
+    data = save_figure_to_numpy(fig)
+    plt.close()
+    # return data
+    return np.transpose(data, (2, 0, 1))
+
 
 def plot_spectrogram_to_numpy(spectrogram):
     fig, ax = plt.subplots(figsize=(12, 3))

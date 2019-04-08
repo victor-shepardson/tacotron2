@@ -1,7 +1,7 @@
 import random
 import torch
 from tensorboardX import SummaryWriter
-from plotting_utils import plot_alignment_to_numpy, plot_spectrogram_to_numpy
+from plotting_utils import plot_alignments_to_numpy, plot_alignment_to_numpy, plot_spectrogram_to_numpy
 from plotting_utils import plot_gate_outputs_to_numpy
 
 
@@ -39,10 +39,15 @@ class Tacotron2Logger(SummaryWriter):
 
         # plot alignment, mel target and predicted, gate target and predicted
         idx = 0#random.randint(0, alignments.size(0) - 1)
+        # self.add_image(
+        #     "log10(alignment+1e-3)",
+        #     plot_alignment_to_numpy(
+        #         (alignments[idx]+1e-3).log10().data.cpu().numpy().T),
+        #     iteration)
         self.add_image(
             "log10(alignment+1e-3)",
-            plot_alignment_to_numpy(
-                (alignments[idx]+1e-3).log10().data.cpu().numpy().T),
+            plot_alignments_to_numpy(
+                (alignments+1e-3).log10().data.cpu().numpy().transpose(0,2,1)),
             iteration)
         self.add_image(
             "mel_target",
