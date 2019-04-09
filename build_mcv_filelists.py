@@ -51,17 +51,50 @@ train_data, val_data = data[~is_val], data[is_val]
 
 
 # audio features
+# def gen_spectra(data):
+#     for fname, lang in zip(tqdm(data.path, desc='processing audio'), data.lang):
+#         s = stft.mel_spectrogram(
+#             load_audio_to_torch(f'{data_root}/{lang}/clips/{fname}.mp3', hparams.sampling_rate, wav_scale=False)[0]
+#             .unsqueeze(0)
+#         ).squeeze(0).numpy()
+#         # trim leading/trailing silence
+#         spectral_peaks = np.max(s[3:], axis=0)
+#         loud = np.argwhere((spectral_peaks > np.max(spectral_peaks)-3)).squeeze()
+#         lo, hi = max(0, loud[0]-16), min(s.shape[1], loud[-1]+32)
+#         yield s[:, lo:hi]
+
 def gen_spectra(data):
-    for fname, lang in zip(tqdm(data.path, desc='processing audio'), data.lang):
+    for fname, lang in zip(data.path, data.lang):
         s = stft.mel_spectrogram(
             load_audio_to_torch(f'{data_root}/{lang}/clips/{fname}.mp3', hparams.sampling_rate, wav_scale=False)[0]
             .unsqueeze(0)
         ).squeeze(0).numpy()
+
+        drop_lf_bands = 3
+        peak_range = 3
+        tr_before, tr_after = 12, 24
+        noise_quant = (0.03, 0.1)
+        noise_reduce = 0.5
+        noise_floor = -10
+
         # trim leading/trailing silence
-        spectral_peaks = np.max(s[3:], axis=0)
-        loud = np.argwhere((spectral_peaks > np.max(spectral_peaks)-3)).squeeze()
-        lo, hi = max(0, loud[0]-16), min(s.shape[1], loud[-1]+32)
-        yield s[:, lo:hi]
+        spectral_peaks = np.max(s[drop_lf_bands:], axis=0)
+        loud = np.argwhere(
+            (spectral_peaks > np.max(spectral_peaks)-peak_range)
+        ).squeeze()
+        lo, hi = max(0, loud[0]-tr_before), min(s.shape[1], loud[-1]+tr_after)
+
+        # reduce background noise
+        spectral_mean = np.mean(s[drop_lf_bands:], axis=0)
+        quiet = np.argwhere((
+            (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
+            & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
+        )).squeeze()
+        noise = s[:, quiet].mean(1)
+
+        yield np.maximum(
+            s[:, lo:hi] - noise_reduce*(noise[:, np.newaxis]-noise_floor),
+            noise_floor)
 
 # save spectra with np.save
 if process_audio:
