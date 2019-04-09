@@ -28,7 +28,7 @@ def gen_tables(fname):
         data['lang_idx'] = i
         yield data
 
-data = pd.concat(gen_tables('validated.tsv'))
+data = pd.concat(gen_tables('validated.tsv')).reset_index(drop=True)
 # convert client_id to speaker id and discard infrequent speakers
 speaker_map = {
     id:(i if count>=min_speaker_samples else -1)
@@ -39,15 +39,15 @@ data = data[data.speaker>=0]
 # print(data.speaker.value_counts())
 print(f'found {data.speaker.nunique()} speakers')
 
-# respect orginal validation split so models trained with it can be used for warm start
-valid_data = pd.concat(gen_tables('dev.tsv'))
-valid_paths = (
-    valid_data[valid_data.client_id.isin(data.client_id)].path
-    .sample(val_size, replace=True, random_state=0))
-
-# train/valid split
-is_val = data.path.isin(valid_paths)
+# original validation split tests generalization across speakers (for recognition)
+# for multi-speaker TTS model, we want to test across sentences within speakers
+is_val = pd.Series(index=data.index, dtype=np.bool)
+# stratified by language
+for _,g in data.groupby('lang'):
+    val_idxs = g.sample(val_size//len(langs), replace=False, random_state=0).index
+    is_val[val_idxs] = True
 train_data, val_data = data[~is_val], data[is_val]
+
 
 # audio features
 def gen_spectra(data):
@@ -59,7 +59,7 @@ def gen_spectra(data):
         # trim leading/trailing silence
         spectral_peaks = np.max(s[3:], axis=0)
         loud = np.argwhere((spectral_peaks > np.max(spectral_peaks)-3)).squeeze()
-        lo, hi = max(0, loud[0]-5), min(s.shape[1], loud[-1]+20)
+        lo, hi = max(0, loud[0]-16), min(s.shape[1], loud[-1]+32)
         yield s[:, lo:hi]
 
 # save spectra with np.save
