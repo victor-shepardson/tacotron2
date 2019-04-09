@@ -72,7 +72,7 @@ def gen_spectra(data):
 
         drop_lf_bands = 3
         peak_range = 3
-        tr_before, tr_after = 12, 24
+        trim = (12, 24)
         noise_quant = (0.03, 0.1)
         noise_reduce = 0.5
         noise_floor = -10
@@ -82,7 +82,7 @@ def gen_spectra(data):
         loud = np.argwhere(
             (spectral_peaks > np.max(spectral_peaks)-peak_range)
         ).squeeze()
-        lo, hi = max(0, loud[0]-tr_before), min(s.shape[1], loud[-1]+tr_after)
+        lo, hi = max(0, loud[0]-trim[0]), min(s.shape[1], loud[-1]+trim[1])
 
         # reduce background noise
         spectral_mean = np.mean(s[drop_lf_bands:], axis=0)
