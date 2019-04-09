@@ -15,6 +15,7 @@ print(f'found {len(langs)} languages: {langs}')
 min_speaker_samples = 100
 val_size = 200*len(langs)
 
+# default hparams just for audio params
 hparams = create_hparams()
 stft = layers.TacotronSTFT(
     hparams.filter_length, hparams.hop_length, hparams.win_length,

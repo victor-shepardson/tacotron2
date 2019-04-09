@@ -176,11 +176,7 @@ class Encoder(nn.Module):
                             batch_first=True, bidirectional=True)
 
     def forward(self, x, input_lengths):
-        x = F.dropout(F.relu(self.convolutions[0](x)), 0.2, self.training)
-        x_res = x
-        for conv in self.convolutions[1:]:
-            x_res = F.dropout(F.relu(conv(x_res)), 0.5, self.training)
-        x = x + x_res
+        x = self.conv_layers(x)
         # for conv in self.convolutions:
         #     x = F.dropout(F.relu(conv(x)), 0.5, self.training)
 
@@ -200,8 +196,7 @@ class Encoder(nn.Module):
         return outputs
 
     def inference(self, x):
-        for conv in self.convolutions:
-            x = F.dropout(F.relu(conv(x)), 0.5, self.training)
+        x = self.conv_layers(x)
 
         x = x.transpose(1, 2)
 
@@ -209,6 +204,13 @@ class Encoder(nn.Module):
         outputs, _ = self.lstm(x)
 
         return outputs
+
+    def conv_layers(self, x):
+        x = F.dropout(F.relu(self.convolutions[0](x)), 0.2, self.training)
+        x_res = x
+        for conv in self.convolutions[1:]:
+            x_res = F.dropout(F.relu(conv(x_res)), 0.5, self.training)
+        return x + x_res
 
 
 class Decoder(nn.Module):
@@ -440,6 +442,8 @@ class Decoder(nn.Module):
             decoder_input = decoder_inputs[len(mel_outputs)]
             mel_output, gate_output, attention_weights = self.decode(
                 decoder_input)
+                # self.prenet(mel_output) if len(mel_outputs)>0 else decoder_input)
+
             mel_outputs += [mel_output.squeeze(1)]
             gate_outputs += [gate_output.squeeze()]
             alignments += [attention_weights]
