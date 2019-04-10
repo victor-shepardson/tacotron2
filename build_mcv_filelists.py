@@ -85,7 +85,7 @@ def gen_spectra(data):
         )).squeeze()
         # print(s.shape, quiet)
         noise = 0
-        if len(quiet) > 0:
+        if quiet.ndim > 0 and len(quiet) > 0:
             noise = s[:, quiet].mean(1, keepdims=True) - noise_floor
 
         yield np.maximum(
