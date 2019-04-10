@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, warnings
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -13,6 +13,7 @@ data_root = '../data/mozilla_common_voice'
 langs = [d for d in os.listdir(data_root) if not d.startswith('.')]
 print(f'found {len(langs)} languages: {langs}')
 min_speaker_samples = 100
+max_speakers_per_lang = 16
 val_size = 200*len(langs)
 
 # default hparams just for audio params
@@ -31,13 +32,14 @@ def gen_tables(fname):
 
 data = pd.concat(gen_tables('validated.tsv')).reset_index(drop=True)
 # convert client_id to speaker id and discard infrequent speakers
-speaker_map = {
-    id:(i if count>=min_speaker_samples else -1)
-    for i, (id, count) in enumerate(data.client_id.value_counts().iteritems())}
-data['speaker'] = data.client_id.map(speaker_map)
-data = data[data.speaker>=0]
-# print('speaker distribution:')
-# print(data.speaker.value_counts())
+# limit max speakers per lang so overrepresented langs dont cause underrepresented speakers with stratified sapling by lang
+speakers = [
+    id for _, g in data.groupby('lang')
+    for i, (id, count) in enumerate(g.client_id.value_counts().iteritems())
+    if count >= min_speaker_samples and i < max_speakers_per_lang
+]
+data['speaker'] = data.client_id.map({s:i for i,s in enumerate(speakers)})
+data = data[data.speaker.notnull()]
 print(f'found {data.speaker.nunique()} speakers')
 
 # original validation split tests generalization across speakers (for recognition)
@@ -50,31 +52,22 @@ for _,g in data.groupby('lang'):
 train_data, val_data = data[~is_val], data[is_val]
 
 
-# audio features
-# def gen_spectra(data):
-#     for fname, lang in zip(tqdm(data.path, desc='processing audio'), data.lang):
-#         s = stft.mel_spectrogram(
-#             load_audio_to_torch(f'{data_root}/{lang}/clips/{fname}.mp3', hparams.sampling_rate, wav_scale=False)[0]
-#             .unsqueeze(0)
-#         ).squeeze(0).numpy()
-#         # trim leading/trailing silence
-#         spectral_peaks = np.max(s[3:], axis=0)
-#         loud = np.argwhere((spectral_peaks > np.max(spectral_peaks)-3)).squeeze()
-#         lo, hi = max(0, loud[0]-16), min(s.shape[1], loud[-1]+32)
-#         yield s[:, lo:hi]
-
 def gen_spectra(data):
     for fname, lang in zip(data.path, data.lang):
+        path = f'{data_root}/{lang}/clips/{fname}.mp3'
         s = stft.mel_spectrogram(
-            load_audio_to_torch(f'{data_root}/{lang}/clips/{fname}.mp3', hparams.sampling_rate, wav_scale=False)[0]
+            load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0]
             .unsqueeze(0)
         ).squeeze(0).numpy()
 
-        drop_lf_bands = 3
-        peak_range = 3
-        trim = (12, 24)
-        noise_quant = (0.03, 0.1)
-        noise_reduce = 0.5
+        if s.shape[-1] < 30:
+            warnings.warn(f'unexpectedly short audio: {path}')
+
+        drop_lf_bands = 3 #ignore noisy low frequency bands when detecting silence
+        peak_range = 3 # range below overall spectral peak for a frame to be considered speech
+        trim = (12, 24) # include frames before, after first/last detected speech
+        noise_quant = (0.03, 0.1) # mean frame intensity quantile to use as noise
+        noise_reduce = 0.7 # fraction of noise to replace with noise_floor
         noise_floor = -10
 
         # trim leading/trailing silence
@@ -90,10 +83,13 @@ def gen_spectra(data):
             (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
             & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
         )).squeeze()
-        noise = s[:, quiet].mean(1)
+        # print(s.shape, quiet)
+        noise = -noise_floor
+        if len(quiet) > 0:
+            noise = noise + s[:, quiet].mean(1)
 
         yield np.maximum(
-            s[:, lo:hi] - noise_reduce*(noise[:, np.newaxis]-noise_floor),
+            s[:, lo:hi] - noise_reduce*noise[:, np.newaxis],
             noise_floor)
 
 # save spectra with np.save
@@ -103,7 +99,7 @@ if process_audio:
         if not os.path.exists(path):
             os.mkdir(path)
 
-    for fname, lang, s in zip(data.path, data.lang, gen_spectra(data)):
+    for fname, lang, s in zip(tqdm(data.path), data.lang, gen_spectra(data)):
         np.save(f'{data_root}/{lang}/spect/{fname}', s)
 
 # write filelists
