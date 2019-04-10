@@ -84,12 +84,12 @@ def gen_spectra(data):
             & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
         )).squeeze()
         # print(s.shape, quiet)
-        noise = -noise_floor
+        noise = 0
         if len(quiet) > 0:
-            noise = noise + s[:, quiet].mean(1)
+            noise = s[:, quiet].mean(1, keepdims=True) - noise_floor
 
         yield np.maximum(
-            s[:, lo:hi] - noise_reduce*noise[:, np.newaxis],
+            s[:, lo:hi] - noise_reduce*noise,
             noise_floor)
 
 # save spectra with np.save
