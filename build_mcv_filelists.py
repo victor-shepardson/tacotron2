@@ -1,4 +1,5 @@
 import sys, os, warnings
+from collections import defaultdict
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -38,8 +39,12 @@ speakers = [
     for i, (id, count) in enumerate(g.client_id.value_counts().iteritems())
     if count >= min_speaker_samples and i < max_speakers_per_lang
 ]
-data['speaker'] = data.client_id.map({s:i for i,s in enumerate(speakers)})
-data = data[data.speaker.notnull()]
+
+speaker_map = defaultdict(lambda: -1)
+speaker_map.update({s:i for i,s in enumerate(speakers)})
+data['speaker'] = data.client_id.map(speaker_map)
+
+data = data[data.speaker>=0]
 print(f'found {data.speaker.nunique()} speakers')
 
 # original validation split tests generalization across speakers (for recognition)
@@ -88,9 +93,7 @@ def gen_spectra(data):
         if quiet.ndim > 0 and len(quiet) > 0:
             noise = s[:, quiet].mean(1, keepdims=True) - noise_floor
 
-        yield np.maximum(
-            s[:, lo:hi] - noise_reduce*noise,
-            noise_floor)
+        yield np.maximum(s[:, lo:hi] - noise_reduce*noise, noise_floor)
 
 # save spectra with np.save
 if process_audio:
