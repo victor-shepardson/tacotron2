@@ -8,7 +8,11 @@ import layers
 from hparams import create_hparams
 from utils import load_audio_to_torch
 
+"""Preprocess audio and build filelists for both tacotron2 and waveglow.
+Assumes waveglow is nested in tacotron2 directory and not the other way around."""
+
 process_audio = sys.argv[1] if len(sys.argv)>1 else False
+debug = sys.argv[2] if len(sys.argv)>2 else False
 
 data_root = '../data/mozilla_common_voice'
 langs = [d for d in os.listdir(data_root) if not d.startswith('.')]
@@ -17,7 +21,7 @@ min_speaker_samples = 100
 max_speakers_per_lang = 16
 val_size = 200*len(langs)
 
-# default hparams just for audio params
+# create default hparams just for audio params
 hparams = create_hparams()
 stft = layers.TacotronSTFT(
     hparams.filter_length, hparams.hop_length, hparams.win_length,
@@ -47,6 +51,10 @@ data['speaker'] = data.client_id.map(speaker_map)
 data = data[data.speaker>=0]
 print(f'found {data.speaker.nunique()} speakers')
 
+if debug:
+    data = data.sample(200)
+    val_size = len(langs)
+
 # original validation split tests generalization across speakers (for recognition)
 # for multi-speaker TTS model, we want to test across sentences within speakers
 is_val = pd.Series(index=data.index, dtype=np.bool)
@@ -60,12 +68,10 @@ train_data, val_data = data[~is_val], data[is_val]
 def gen_spectra(data):
     for fname, lang in zip(data.path, data.lang):
         path = f'{data_root}/{lang}/clips/{fname}.mp3'
-        s = stft.mel_spectrogram(
-            load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0]
-            .unsqueeze(0)
-        ).squeeze(0).numpy()
+        audio = load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0]
+        spect = stft.mel_spectrogram(audio.unsqueeze(0)).squeeze(0).numpy()
 
-        if s.shape[-1] < 30:
+        if spect.shape[-1] < 30:
             warnings.warn(f'unexpectedly short audio: {path}')
 
         drop_lf_bands = 3 #ignore noisy low frequency bands when detecting silence
@@ -76,33 +82,37 @@ def gen_spectra(data):
         noise_floor = -10
 
         # trim leading/trailing silence
-        spectral_peaks = np.max(s[drop_lf_bands:], axis=0)
+        spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
         loud = np.argwhere(
             (spectral_peaks > np.max(spectral_peaks)-peak_range)
         ).squeeze()
-        lo, hi = max(0, loud[0]-trim[0]), min(s.shape[1], loud[-1]+trim[1])
+        lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
 
         # reduce background noise
-        spectral_mean = np.mean(s[drop_lf_bands:], axis=0)
+        spectral_mean = np.mean(spect[drop_lf_bands:], axis=0)
         quiet = np.argwhere((
             (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
             & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
         )).squeeze()
-        # print(s.shape, quiet)
         noise = 0
         if quiet.ndim > 0 and len(quiet) > 0:
-            noise = s[:, quiet].mean(1, keepdims=True) - noise_floor
+            noise = spect[:, quiet].mean(1, keepdims=True) - noise_floor
 
-        yield np.maximum(s[:, lo:hi] - noise_reduce*noise, noise_floor)
+        yield (
+            audio[lo*hparams.hop_length:hi*hparams.hop_length],
+            np.maximum(spect[:, lo:hi] - noise_reduce*noise, noise_floor)
+        )
 
 # save spectra with np.save
 if process_audio:
     for lang in langs:
-        path = os.path.join(data_root, lang, 'spect')
-        if not os.path.exists(path):
-            os.mkdir(path)
+        for dir in ('spect', 'wav'):
+            path = os.path.join(data_root, lang, dir)
+            if not os.path.exists(path):
+                os.mkdir(path)
 
-    for fname, lang, s in zip(tqdm(data.path), data.lang, gen_spectra(data)):
+    for fname, lang, (w, s) in zip(tqdm(data.path), data.lang, gen_spectra(data)):
+        np.save(f'{data_root}/{lang}/wav/{fname}', w)
         np.save(f'{data_root}/{lang}/spect/{fname}', s)
 
 # write filelists
@@ -114,6 +124,14 @@ for data, dest in (
                 tqdm(data.path, desc='writing filelist'),
                 data.sentence, data.speaker, data.lang, data.lang_idx):
             fl.write(f'{data_root}/{lang}/spect/{fname}.npy|{text}|{speaker}|{lang_idx}\n')
+
+for data, dest in (
+        (train_data, 'waveglow/mcv_train_filelist.txt'),
+        (val_data, 'waveglow/mcv_val_filelist.txt')):
+    with open(dest, 'w') as fl:
+        for fname, lang, in zip(
+                tqdm(data.path, desc='writing filelist'), data.lang):
+            fl.write(f'../{data_root}/{lang}/wav/{fname}.npy\n')
 
 
 # import sys, os

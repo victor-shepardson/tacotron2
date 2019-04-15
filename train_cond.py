@@ -1,8 +1,8 @@
 # GPU train:
-# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=64,iters_per_checkpoint=100,load_mel_from_disk=True,n_speakers=117,speaker_embedding_dim=32,n_languages=4,language_embedding_dim=8,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4"
+# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=48,iters_per_checkpoint=100,load_mel_from_disk=True,n_speakers=117,speaker_embedding_dim=32,n_languages=8,language_embedding_dim=8,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4"
 
 # CPU test:
-# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_eo_train_single.txt',validation_files='filelists/mcv_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True,n_speakers=60,speaker_embedding_dim=32,n_languages=2,language_embedding_dim=4,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4"
+# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_train_single.txt',validation_files='filelists/mcv_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True,n_speakers=60,speaker_embedding_dim=32,n_languages=2,language_embedding_dim=4,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4"
 
 # --warm_start -c tacotron2_statedict.pt
 
