@@ -114,8 +114,8 @@ def warm_start_model(checkpoint_path, model):
     state_dict = {
         k:v for k,v in state_dict.items()
         if 'decoder.attention_rnn' not in k and 'decoder.decoder_rnn' not in k
-        and 'encoder.convolutions.0' not in k and 'symbol_embedding' not in k
-        and 'attention' not in k and 'speaker_embedding' not in k}
+        and 'encoder.convolutions.0' not in k and 'embedding' not in k
+        and 'attention' not in k}
     model.load_state_dict(state_dict, False)
     # checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     # model.load_state_dict(checkpoint_dict['state_dict'])
