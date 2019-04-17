@@ -80,7 +80,7 @@ def gen_spectra(data):
         trim = (12, 24) # include frames before, after first/last detected speech
         noise_quant = (0.03, 0.1) # mean frame intensity quantile to use as noise
         noise_reduce = 0.7 # fraction of noise to replace with noise_floor
-        noise_floor = -10
+        noise_floor = 5e-5
 
         # trim leading/trailing silence
         spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
@@ -98,11 +98,18 @@ def gen_spectra(data):
                 & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
             )).squeeze()
             if quiet.ndim > 0 and len(quiet) > 0:
-                noise = spect[:, quiet].mean(1, keepdims=True) - noise_floor
+                noise = spect[:, quiet].mean(1, keepdims=True)
+
+        spect = spect[:, lo:hi]
+
+        if remove_noise:
+            spect = np.log(np.maximum(
+                np.exp(spect) - noise_reduce*np.exp(noise),
+                noise_floor))
 
         yield (
             audio[lo*hparams.hop_length:hi*hparams.hop_length],
-            np.maximum(spect[:, lo:hi] - noise_reduce*noise, noise_floor)
+            spect
         )
 
 # save spectra with np.save

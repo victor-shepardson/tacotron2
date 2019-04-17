@@ -206,7 +206,7 @@ class Encoder(nn.Module):
         return outputs
 
     def conv_layers(self, x):
-        x = F.dropout(F.relu(self.convolutions[0](x)), 0.2, self.training)
+        x = F.dropout(F.relu(self.convolutions[0](x)), 0.5, self.training)
         x_res = x
         for conv in self.convolutions[1:]:
             x_res = F.dropout(F.relu(conv(x_res)), 0.5, self.training)
