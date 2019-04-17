@@ -38,7 +38,7 @@ def gen_tables(fname):
 
 data = pd.concat(gen_tables('validated.tsv')).reset_index(drop=True)
 # convert client_id to speaker id and discard infrequent speakers
-# limit max speakers per lang so overrepresented langs dont cause underrepresented speakers with stratified sapling by lang
+# limit max speakers per lang so overrepresented langs dont cause underrepresented speakers with stratified sampling by lang
 speakers = [
     id for _, g in data.groupby('lang')
     for i, (id, count) in enumerate(g.client_id.value_counts().iteritems())
@@ -46,11 +46,17 @@ speakers = [
 ]
 
 speaker_map = defaultdict(lambda: -1)
+
 speaker_map.update({s:i for i,s in enumerate(speakers)})
+
+print(len(speakers), list(speaker_map.values()))
+
+
 data['speaker'] = data.client_id.map(speaker_map)
 
 data = data[data.speaker>=0]
 print(f'found {data.speaker.nunique()} speakers')
+print(data.speaker.max())
 
 if debug:
     data = data.sample(200)
