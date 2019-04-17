@@ -239,8 +239,11 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             model.zero_grad()
             x, y = model.parse_batch(batch)
-            for item in x:
-                print(x.shape)
+
+            #debug
+            text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker, language = x
+            print(input_lengths, max_len, text_padded.shape)
+
             y_pred = model(x)
 
             loss, mel_loss, gate_loss = criterion(y_pred, y, return_parts=True)
