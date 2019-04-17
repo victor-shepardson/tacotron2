@@ -140,8 +140,12 @@ class Postnet(nn.Module):
             )
 
     def forward(self, x):
-        for i in range(len(self.convolutions) - 1):
-            x = F.dropout(torch.tanh(self.convolutions[i](x)), 0.5, self.training)
+        # for i in range(len(self.convolutions) - 1):
+            # x = F.dropout(F.tanh(self.convolutions[i](x)), 0.5, self.training)
+
+        for conv in self.convolutions[:-1]:
+            x = F.dropout(F.relu(conv(x)), 0.5, self.training)
+
         x = F.dropout(self.convolutions[-1](x), 0.5, self.training)
 
         return x
