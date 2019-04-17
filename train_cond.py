@@ -161,11 +161,6 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         for i, batch in enumerate(val_loader):
             x, y = model.parse_batch(batch)
 
-            #debug
-            print('validating')
-            text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker, language = x
-            print(input_lengths, max_len, text_padded.shape)
-
             y_pred = model(x)
             loss, mel_loss, gate_loss = criterion(y_pred, y, return_parts=True)
             if distributed_run:
@@ -245,10 +240,6 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             model.zero_grad()
             x, y = model.parse_batch(batch)
-
-            #debug
-            text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker, language = x
-            print(input_lengths, max_len, text_padded.shape)
 
             y_pred = model(x)
 

@@ -48,14 +48,9 @@ speakers = np.unique([
 speaker_map = defaultdict(lambda: -1)
 speaker_map.update({s:i for i,s in enumerate(speakers)})
 
-print(len(speakers), list(speaker_map.values()))
-
-
 data['speaker'] = data.client_id.map(speaker_map)
 
 data = data[data.speaker>=0]
-print(f'found {data.speaker.nunique()} speakers')
-print(data.speaker.max())
 
 if debug:
     data = data.sample(200)
