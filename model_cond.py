@@ -447,7 +447,7 @@ class Decoder(nn.Module):
         while len(mel_outputs) < decoder_inputs.size(0) - 1:
             decoder_input = decoder_inputs[len(mel_outputs)]
             mel_output, gate_output, attention_weights = self.decode(
-                decoder_input, forget_gate=forget_gate)
+                decoder_input)
                 # self.prenet(mel_output) if len(mel_outputs)>0 else decoder_input)
 
             mel_outputs += [mel_output.squeeze(1)]
