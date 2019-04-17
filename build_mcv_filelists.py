@@ -13,6 +13,7 @@ Assumes waveglow is nested in tacotron2 directory and not the other way around."
 
 process_audio = sys.argv[1] if len(sys.argv)>1 else False
 debug = sys.argv[2] if len(sys.argv)>2 else False
+remove_noise = False
 
 data_root = '../data/mozilla_common_voice'
 langs = [d for d in os.listdir(data_root) if not d.startswith('.')]
@@ -89,14 +90,15 @@ def gen_spectra(data):
         lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
 
         # reduce background noise
-        spectral_mean = np.mean(spect[drop_lf_bands:], axis=0)
-        quiet = np.argwhere((
-            (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
-            & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
-        )).squeeze()
         noise = 0
-        if quiet.ndim > 0 and len(quiet) > 0:
-            noise = spect[:, quiet].mean(1, keepdims=True) - noise_floor
+        if remove_noise:
+            spectral_mean = np.mean(spect[drop_lf_bands:], axis=0)
+            quiet = np.argwhere((
+                (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
+                & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
+            )).squeeze()
+            if quiet.ndim > 0 and len(quiet) > 0:
+                noise = spect[:, quiet].mean(1, keepdims=True) - noise_floor
 
         yield (
             audio[lo*hparams.hop_length:hi*hparams.hop_length],
