@@ -537,7 +537,7 @@ class Tacotron2(nn.Module):
         self.register_buffer('speaker_lang_freq', self.init_freq())
 
     def init_freq(self):
-        torch.zeros(
+        return torch.zeros(
             self.speaker_embedding.weight.shape[0],
             self.language_embedding.weight.shape[0],
             dtype=torch.long)

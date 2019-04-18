@@ -128,7 +128,10 @@ def load_checkpoint(checkpoint_path, model, optimizer):
     assert os.path.isfile(checkpoint_path)
     print("Loading checkpoint '{}'".format(checkpoint_path))
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
-    model.load_state_dict(checkpoint_dict['state_dict'])
+    state_dict = checkpoint_dict['state_dict']
+    if 'speaker_lang_freq' not in state_dict:
+        state_dict['speaker_lang_freq'] = model.init_freq()
+    model.load_state_dict(state_dict)
     optimizer.load_state_dict(checkpoint_dict['optimizer'])
     learning_rate = checkpoint_dict['learning_rate']
     iteration = checkpoint_dict['iteration']
