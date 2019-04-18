@@ -533,6 +533,19 @@ class Tacotron2(nn.Module):
         self.decoder = Decoder(hparams)
         self.postnet = Postnet(hparams)
 
+        # track incidence of speaker, language pairs on every forward call
+        self.register_buffer('speaker_lang_freq', torch.zeros(
+            hparams.n_speakers, hparams.n_languages,
+            dtype=torch.long))
+
+    def get_speaker_lang_pairs(self):
+        return [
+            (spk, lang)
+            for spk in range(self.speaker_lang_freq.shape[0])
+            for lang in range(self.speaker_lang_freq.shape[1])
+            if self.speaker_lang_freq[spk, lang] > 0
+            ]
+
     def device(self):
         return self.symbol_embedding.weight.device
 
@@ -575,6 +588,9 @@ class Tacotron2(nn.Module):
         inputs, input_lengths, targets, max_len,\
             output_lengths, speaker, language = self.parse_input(inputs)
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
+
+        for spk, lang in zip(speaker, language):
+            self.speaker_lang_freq[spk, lang] += 1
 
         embedded_inputs = self.symbol_embedding(inputs).transpose(1, 2)
         embedded_lang = self.language_embedding(language)
