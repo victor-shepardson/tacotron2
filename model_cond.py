@@ -520,14 +520,15 @@ class Tacotron2(nn.Module):
         self.language_embedding = nn.Embedding(
             hparams.n_languages, hparams.language_embedding_dim)
 
-        def emb_init(n, dim):
-            return sqrt(3) * sqrt(2 / (n + dim))
-        sym_init = emb_init(hparams.n_symbols, hparams.symbols_embedding_dim)
-        self.symbol_embedding.weight.data.uniform_(-sym_init, sym_init)
-        spk_init = emb_init(hparams.n_speakers, hparams.speaker_embedding_dim)
-        self.speaker_embedding.weight.data.uniform_(-spk_init, spk_init)
-        lang_init = emb_init(hparams.n_languages, hparams.language_embedding_dim)
-        self.language_embedding.weight.data.uniform_(-lang_init, lang_init)
+        def emb_init(n, dim, t):
+            v = sqrt(3) * sqrt(2 / (n + dim))
+            t.uniform_(-v, v)
+        emb_init(hparams.n_symbols, hparams.symbols_embedding_dim,
+            self.symbol_embedding.weight.data)
+        emb_init(hparams.n_speakers, hparams.speaker_embedding_dim,
+            self.speaker_embedding.weight.data)
+        emb_init(hparams.n_languages, hparams.language_embedding_dim,
+            self.language_embedding.weight.data)
 
         self.encoder = Encoder(hparams)
         self.decoder = Decoder(hparams)
