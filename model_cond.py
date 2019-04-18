@@ -534,9 +534,13 @@ class Tacotron2(nn.Module):
         self.postnet = Postnet(hparams)
 
         # track incidence of speaker, language pairs on every forward call
-        self.register_buffer('speaker_lang_freq', torch.zeros(
-            hparams.n_speakers, hparams.n_languages,
-            dtype=torch.long))
+        self.register_buffer('speaker_lang_freq', self.init_freq())
+
+    def init_freq(self):
+        torch.zeros(
+            self.speaker_embedding.weight.shape[0],
+            self.language_embedding.weight.shape[0],
+            dtype=torch.long)
 
     def get_speaker_lang_pairs(self):
         return [
