@@ -116,8 +116,6 @@ def warm_start_model(checkpoint_path, model):
         if 'decoder.attention_rnn' not in k and 'decoder.decoder_rnn' not in k
         and 'encoder.convolutions.0' not in k and 'embedding' not in k
         and 'attention' not in k}
-    # if 'speaker_lang_freq' not in state_dict:
-        # state_dict['speaker_lang_freq'] = model.init_freq()
     model.load_state_dict(state_dict, False)
     # checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     # model.load_state_dict(checkpoint_dict['state_dict'])
@@ -128,10 +126,7 @@ def load_checkpoint(checkpoint_path, model, optimizer):
     assert os.path.isfile(checkpoint_path)
     print("Loading checkpoint '{}'".format(checkpoint_path))
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
-    state_dict = checkpoint_dict['state_dict']
-    # if 'speaker_lang_freq' not in state_dict:
-    #     state_dict['speaker_lang_freq'] = model.init_freq()
-    model.load_state_dict(state_dict, False)
+    model.load_state_dict(checkpoint_dict['state_dict'], False)
     optimizer.load_state_dict(checkpoint_dict['optimizer'])
     learning_rate = checkpoint_dict['learning_rate']
     iteration = checkpoint_dict['iteration']
@@ -206,6 +201,11 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     learning_rate = hparams.learning_rate
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
                                  weight_decay=hparams.weight_decay)
+
+    n_steps = 10000
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(
+        optimizer, 1e-3**(1/n_steps))
+
     if hparams.fp16_run:
         optimizer = FP16_Optimizer(
             optimizer, dynamic_loss_scale=hparams.dynamic_loss_scaling)
@@ -239,6 +239,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     for epoch in range(epoch_offset, hparams.epochs):
         print("Epoch: {}".format(epoch))
         for i, batch in enumerate(train_loader):
+            scheduler.step()
             start = time.perf_counter()
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate
