@@ -202,10 +202,6 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
                                  weight_decay=hparams.weight_decay)
 
-    n_steps = 10000
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(
-        optimizer, 1e-3**(1/n_steps))
-
     if hparams.fp16_run:
         optimizer = FP16_Optimizer(
             optimizer, dynamic_loss_scale=hparams.dynamic_loss_scaling)
@@ -233,6 +229,10 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 learning_rate = _learning_rate
             iteration += 1  # next iteration is iteration + 1
             epoch_offset = max(0, int(iteration / len(train_loader)))
+
+    n_steps = 10000
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(
+        optimizer, 1e-3**(1/n_steps))
 
     model.train()
     # ================ MAIN TRAINING LOOP! ===================
