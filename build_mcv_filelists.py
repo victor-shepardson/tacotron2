@@ -3,6 +3,7 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import pickle
 
 import layers
 from hparams import create_hparams
@@ -142,6 +143,12 @@ for data, dest in (
                 tqdm(data.path, desc='writing filelist'), data.lang):
             fl.write(f'../{data_root}/{lang}/wav/{fname}.npy\n')
 
+# store client_id and language code mappings for later recovery
+with open('filelists/mcv_train_mappings.pkl', 'wb') as file:
+    pickle.dump({
+        'language': {l:i for i,l in enumerate(langs)},
+        'speaker': {s:i for s,i in speaker_map.items() if i>=0}
+    }, file)
 
 # import sys, os
 # import numpy as np
