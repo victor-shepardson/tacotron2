@@ -48,7 +48,7 @@ class TextMelLoader(torch.utils.data.Dataset):
     def get_data_tuple(self, audiopath_and_text):
         # separate filename and text
         audiopath, text = audiopath_and_text[:2]
-        text = self.get_text(text)
+        text = self.get_text(*r)
         mel = self.get_mel(audiopath)
         r = [text, mel]
         r += audiopath_and_text[2:]
@@ -82,8 +82,9 @@ class TextMelLoader(torch.utils.data.Dataset):
 
         return melspec
 
-    def get_text(self, text):
-        text_norm = torch.IntTensor(text_to_sequence(text, self.text_cleaners))
+    def get_text(self, audio_path, text, speaker=None, lang=None):
+        text_norm = torch.IntTensor(text_to_sequence(
+            text, self.text_cleaners, {'lang':lang}))
         return text_norm
 
     def __getitem__(self, index):

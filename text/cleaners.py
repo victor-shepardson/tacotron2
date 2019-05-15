@@ -13,7 +13,8 @@ hyperparameter. Some cleaners are English-specific. You'll typically want to use
 '''
 
 import re
-from unidecode import unidecode
+# from unidecode import unidecode
+from unihandecode import unidecode
 from .numbers import normalize_numbers
 
 
@@ -88,3 +89,82 @@ def english_cleaners(text):
   text = expand_abbreviations(text)
   text = collapse_whitespace(text)
   return text
+
+def replace(s, d):
+    for k,v in d.items():
+        s = s.replace(k, v)
+    return s
+
+def multi_cleaners(t, metadata):
+    lang = metadata['lang']
+    foreign_alphabets = ['zh', 'ky', 'tt']
+    lang_replacements = {
+        'tr': {
+            'ğ': 'gh',
+            'ç': 'ch',
+            'ş': 'sh',
+            'ı': 'ie',
+            'ö': 'oe',
+            'ü': 'eu'
+        },
+        'nl': {
+            'ë': '-e',
+            'ï': '-i',
+            'ü': '-u',
+            'ö': '-o',
+            'é': "e'",
+            '&': 'en'
+        },
+        'cy': {
+            'ô': 'oo',
+            'â': 'aa',
+            'î': 'ii',
+            'ê': 'ee',
+            'ŵ': 'ww',
+            'ŷ': 'yy'
+        },
+        'it': {
+            'à': "a'",
+            'è': "e'",
+            'ì': "i'",
+            'ò': "o'",
+            'ù': "u'",
+            'ï': 'ii'
+        },
+        'eo': {
+            'ĉ':'ch',
+            'ĥ': 'k',
+            'ĵ': 'jh',
+            'ĝ': 'dg',
+            'ŝ': 'sh',
+            'ŭ': 'w'
+        }
+    }
+    post = {
+        '@': 'uh',
+        '~': '-',
+        '"': "''",
+        '<': "'",
+        '>': "'",
+        '[': '(',
+        ']': ')',
+        '/': '-'
+    }
+    # fix any lowercasing problems:
+    if lang in ['tr']:
+        t = t.replace('I', 'ı')
+    # decode non-latin alphabets
+    if lang in foreign_alphabets:
+        t = unidecode(t)
+    # clean
+    t = lowercase(t)
+    t = collapse_whitespace(t)
+    # language-specific replacements:
+    if lang in lang_replacements:
+        t = replace(t, lang_replacements[lang])
+    # unidecode to catch anything else:
+    if lang not in foreign_alphabets:
+        t = unidecode(t)
+    # additional ascii reductions:
+    t = replace(t, post)
+    return t
