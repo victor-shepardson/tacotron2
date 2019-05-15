@@ -13,8 +13,8 @@ from text.cleaners import multi_cleaners
 """Preprocess audio and build filelists for both tacotron2 and waveglow.
 Assumes waveglow is nested in tacotron2 directory and not the other way around."""
 
-process_audio = sys.argv[1]==1 if len(sys.argv)>1 else False
-debug = sys.argv[2]==1 if len(sys.argv)>2 else False
+process_audio = bool(sys.argv[1]) if len(sys.argv)>1 else False
+debug = bool(sys.argv[2]) if len(sys.argv)>2 else False
 remove_noise = False
 
 data_root = '../data/mozilla_common_voice'
@@ -61,6 +61,8 @@ speaker_map.update({s:i for i,s in enumerate(speakers)})
 data['speaker'] = data.client_id.map(speaker_map)
 
 data = data[data.speaker>=0]
+
+print(data.shape)
 
 if debug:
     data = data.sample(200)
