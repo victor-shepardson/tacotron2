@@ -119,7 +119,11 @@ def warm_start_model(checkpoint_path, model):
         and 'encoder.convolutions.0' not in k and 'embedding' not in k
         and 'attention' not in k
         }
-    model.load_state_dict(state_dict, False)
+    try:
+        model.load_state_dict(state_dict, False)
+    except RuntimeError as err:
+        print(model)
+        raise err
     # checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     # model.load_state_dict(checkpoint_dict['state_dict'])
     return model
