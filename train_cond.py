@@ -117,7 +117,7 @@ def warm_start_model(checkpoint_path, model):
         k:v for k,v in state_dict.items() if
         'decoder.attention_rnn' not in k and 'decoder.decoder_rnn' not in k
         and 'encoder.convolutions.0' not in k and 'embedding' not in k
-        and 'attention' not in k
+        and 'attention' not in k and 'freq' not in k
         }
     try:
         model.load_state_dict(state_dict, False)
