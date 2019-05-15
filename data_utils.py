@@ -48,7 +48,7 @@ class TextMelLoader(torch.utils.data.Dataset):
     def get_data_tuple(self, audiopath_and_text):
         # separate filename and text
         audiopath, text = audiopath_and_text[:2]
-        text = self.get_text(*r)
+        text = self.get_text(*audiopath_and_text)
         mel = self.get_mel(audiopath)
         r = [text, mel]
         r += audiopath_and_text[2:]
