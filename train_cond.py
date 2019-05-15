@@ -183,7 +183,7 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         logger.log_validation(
             reduced_val_loss, model, y, y_pred, iteration,
             loss_parts=(mel_loss, gate_loss),
-            texts=[sequence_to_text(t) for t in x.unbind(0)])
+            texts=[sequence_to_text(t) for t in x[0].unbind(0)])
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
