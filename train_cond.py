@@ -2,7 +2,7 @@
 # python train_cond.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=48,iters_per_checkpoint=300,load_mel_from_disk=True,n_speakers=77,speaker_embedding_dim=32,n_languages=8,language_embedding_dim=32,text_cleaners=['multi_cleaners'],symbols_embedding_dim=256,encoder_n_convolutions=4" -c checkpoints/checkpoint_19800
 
 # CPU test:
-# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_train_single.txt',validation_files='filelists/mcv_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True,n_speakers=60,speaker_embedding_dim=32,n_languages=2,language_embedding_dim=32,text_cleaners=['transliteration_cleaners'],symbols_embedding_dim=128,encoder_n_convolutions=4"
+# python train_cond.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_train_single.txt',validation_files='filelists/mcv_val_single.txt',batch_size=1,iters_per_checkpoint=5,load_mel_from_disk=True,n_speakers=60,speaker_embedding_dim=32,n_languages=2,language_embedding_dim=32,text_cleaners=['multi_cleaners'],symbols_embedding_dim=128,encoder_n_convolutions=4"
 
 # --warm_start -c tacotron2_statedict.pt
 
@@ -26,6 +26,7 @@ from data_utils import TextMelLoader, TextMelCollate, StratifiedSampler
 from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
 from hparams import create_hparams
+from text import sequence_to_text
 
 
 def batchnorm_to_float(module):
@@ -112,10 +113,11 @@ def warm_start_model(checkpoint_path, model):
     print("Warm starting model from checkpoint '{}'".format(checkpoint_path))
     state_dict = torch.load(checkpoint_path, map_location='cpu')['state_dict']
     state_dict = {
-        k:v for k,v in state_dict.items()
-        if 'decoder.attention_rnn' not in k and 'decoder.decoder_rnn' not in k
+        k:v for k,v in state_dict.items() if
+        'decoder.attention_rnn' not in k and 'decoder.decoder_rnn' not in k
         and 'encoder.convolutions.0' not in k and 'embedding' not in k
-        and 'attention' not in k}
+        # and 'attention' not in k
+        }
     model.load_state_dict(state_dict, False)
     # checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     # model.load_state_dict(checkpoint_dict['state_dict'])
@@ -154,7 +156,7 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         #                         shuffle=False, batch_size=batch_size,
         #                         pin_memory=False, collate_fn=collate_fn)
         val_loader = DataLoader(valset, sampler=val_sampler, num_workers=4,
-                                shuffle=False, batch_size=batch_size,
+                                shuffle=True, batch_size=batch_size,
                                 pin_memory=True, collate_fn=collate_fn)
 
         val_loss = 0.0
@@ -175,7 +177,8 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         print("Validation loss {}: {:9f}  ".format(iteration, reduced_val_loss))
         logger.log_validation(
             reduced_val_loss, model, y, y_pred, iteration,
-            loss_parts=(mel_loss, gate_loss))
+            loss_parts=(mel_loss, gate_loss),
+            texts=[sequence_to_text(t) for t in x.unbind(0)])
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,

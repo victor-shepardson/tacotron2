@@ -25,7 +25,7 @@ class Tacotron2Logger(SummaryWriter):
             self.add_loss("training.loss.components", loss_parts, iteration)
 
     def log_validation(self, reduced_loss, model, y, y_pred, iteration,
-            loss_parts=None):
+            loss_parts=None, texts=None):
         self.add_scalar("validation.loss", reduced_loss, iteration)
         self.add_loss("validation.loss.components", loss_parts, iteration)
 
@@ -68,3 +68,5 @@ class Tacotron2Logger(SummaryWriter):
                 gate_targets[idx].data.cpu().numpy(),
                 torch.sigmoid(gate_outputs[idx]).data.cpu().numpy()),
             iteration)
+        if texts:
+            self.add_text('texts', '\n'.join(texts), iteration)
