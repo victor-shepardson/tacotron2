@@ -20,7 +20,10 @@ remove_noise = False
 data_root = '../data/mozilla_common_voice'
 prefix = 'mcv' # for output filenames
 whitelist_file = 'filelists/mcv_whitelist.pkl'#None
-langs = [d for d in os.listdir(data_root) if not d.startswith('.')]
+langs = [
+    d for d in os.listdir(data_root)
+    if not d.startswith('.')
+    and os.path.exists(os.path.join(data_root, d, 'clips'))]
 print(f'found {len(langs)} languages: {langs}')
 min_speaker_samples = 100
 max_speakers_per_lang = 16

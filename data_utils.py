@@ -97,8 +97,9 @@ class TextMelLoader(torch.utils.data.Dataset):
 class TextMelCollate():
     """ Zero-pads model inputs and targets based on number of frames per setep
     """
-    def __init__(self, n_frames_per_step):
+    def __init__(self, n_frames_per_step, return_idxs=False):
         self.n_frames_per_step = n_frames_per_step
+        self.return_idxs = return_idxs
 
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
@@ -153,4 +154,6 @@ class TextMelCollate():
                 language[i] = lang
             r.append(language)
 
+        if self.return_idxs:
+            return r, [int(i) for i in ids_sorted_decreasing.cpu()]
         return r
