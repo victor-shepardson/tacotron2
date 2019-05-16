@@ -61,7 +61,7 @@ def main(tacotron_path, tacotron_filelist, gpu=False, batch_size=48):
             x, y = T.parse_batch(batch)
             mel_preds = T(x)[1].cpu().unbind(0)
             for i, ((path, text, spk, lang), mel_pred) in enumerate(zip(line_batch, mel_preds)):
-                assert batch[-2][i]==int(spk), batch[-1][i]==int(lang), \
+                assert batch[-2][i]==int(spk) and batch[-1][i]==int(lang), \
                     'path/output alignment is broken'
                 synth_path = path.replace('spect', 'synth_spect', 1)
                 synth_dir = os.path.split(synth_path)[0]
