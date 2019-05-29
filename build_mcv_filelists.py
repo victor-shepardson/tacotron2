@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import pickle
+from fire import Fire
 
 import layers
 from hparams import create_hparams
@@ -13,8 +14,7 @@ from text.cleaners import multi_cleaners
 """Preprocess audio and build filelists for both tacotron2 and waveglow.
 Assumes waveglow is nested in tacotron2 directory and not the other way around."""
 
-process_audio = bool(sys.argv[1]) if len(sys.argv)>1 else False
-debug = bool(sys.argv[2]) if len(sys.argv)>2 else False
+# debug = bool(sys.argv[2]) if len(sys.argv)>2 else False
 remove_noise = False
 
 data_root = '../data/mozilla_common_voice'
@@ -67,9 +67,9 @@ data = data[data.speaker>=0]
 
 print(data.shape)
 
-if debug:
-    data = data.sample(200)
-    val_size = len(langs)
+# if debug:
+#     data = data.sample(200)
+#     val_size = len(langs)
 
 # original validation split tests generalization across speakers (for recognition)
 # for multi-speaker TTS model, we want to test across sentences within speakers
@@ -153,7 +153,7 @@ def gen_spectra(data, include_raw=False):
             r.append(spect_raw)
         yield r
 
-if __name__=='__main__':
+def main(process_audio=False):
     # save spectra with np.save
     if process_audio:
         for lang in langs:
@@ -191,3 +191,6 @@ if __name__=='__main__':
             'speaker': {s:i for s,i in speaker_map.items() if i>=0},
             'character': dict(char_freqs)
         }, file)
+
+if __name__=='__main__':
+    Fire(main)

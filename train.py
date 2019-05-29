@@ -1,3 +1,9 @@
+# CPU test:
+# python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,load_mel_from_disk=True,text_cleaners=['multi_cleaners']"
+
+# GPU train:
+# python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,load_mel_from_disk=True,text_cleaners=['multi_cleaners']"
+
 import os
 import time
 import argparse
@@ -133,6 +139,7 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
 
         val_loss = 0.0
         for i, batch in enumerate(val_loader):
+            batch = batch[:5]
             x, y = model.parse_batch(batch)
             y_pred = model(x)
             loss = criterion(y_pred, y)
@@ -205,6 +212,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     for epoch in range(epoch_offset, hparams.epochs):
         print("Epoch: {}".format(epoch))
         for i, batch in enumerate(train_loader):
+            batch = batch[:5] #compatibility with conditional model loader
             start = time.perf_counter()
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate
@@ -272,6 +280,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     hparams = create_hparams(args.hparams)
+    hparams.gpu = torch.cuda.is_available()
 
     torch.backends.cudnn.enabled = hparams.cudnn_enabled
     torch.backends.cudnn.benchmark = hparams.cudnn_benchmark

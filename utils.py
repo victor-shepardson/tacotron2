@@ -8,7 +8,8 @@ MAX_WAV_VALUE = 32768.0
 def get_mask_from_lengths(lengths, device=None):
     max_len = torch.max(lengths).item()
     if device is None:
-        ids = torch.arange(0, max_len, out=torch.cuda.LongTensor(max_len))
+        # ids = torch.arange(0, max_len, out=torch.cuda.LongTensor(max_len))
+        ids = torch.arange(0, max_len, dtype=torch.long, device=lengths.device)
     else:
         ids = torch.arange(0, max_len, dtype=torch.long, device=device)
     mask = (ids < lengths.unsqueeze(1)).byte()
