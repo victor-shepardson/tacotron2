@@ -4,6 +4,8 @@
 # GPU train:
 # python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,load_mel_from_disk=True,text_cleaners=['multi_cleaners']"
 
+# -c tacotron2_statedict.pt --warm_start
+
 import os
 import time
 import argparse
@@ -65,9 +67,9 @@ def prepare_dataloaders(hparams):
     train_sampler = DistributedSampler(trainset) \
         if hparams.distributed_run else None
 
-    train_loader = DataLoader(trainset, num_workers=1, shuffle=False,
+    train_loader = DataLoader(trainset, num_workers=1, shuffle=True,
                               sampler=train_sampler,
-                              batch_size=hparams.batch_size, pin_memory=False,
+                              batch_size=hparams.batch_size, pin_memory=True,
                               drop_last=True, collate_fn=collate_fn)
     return train_loader, valset, collate_fn
 
