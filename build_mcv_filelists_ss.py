@@ -18,11 +18,12 @@ Assumes waveglow is nested in tacotron2 directory and not the other way around."
 
 def main(
         process_audio=False,
-        single_speaker = None,
-        remove_noise = False,
-        data_root = '../data/mozilla_common_voice',
-        prefix = 'mcv', # for output filenames
-        whitelist_file = None,#'filelists/mcv_whitelist.pkl'#None
+        single_speaker=None,
+        remove_noise=False,
+        data_root='../data/mozilla_common_voice',
+        prefix='mcv', # for output filenames
+        whitelist_file=None,#'filelists/mcv_whitelist.pkl'#None
+        val_size = 100
     ):
     langs = [
         d for d in os.listdir(data_root)
@@ -31,7 +32,6 @@ def main(
     print(f'found {len(langs)} languages: {langs}')
     min_speaker_samples = 100
     max_speakers_per_lang = 16
-    val_size = 100
 
     # create default hparams just for audio params
     hparams = create_hparams()
@@ -57,7 +57,6 @@ def main(
         prefix += '_'+single_speaker[:4]
         speakers = [single_speaker]
         data = data[data.client_id==single_speaker]
-        print(data)
         data = data[data.lang==data.lang.value_counts().idxmax()]
     else:
         # convert client_id to speaker id and discard infrequent speakers
