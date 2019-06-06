@@ -29,9 +29,9 @@ from audio_processing import griffin_lim
 import ultima_tools as ut
 from ultima_tools import to_torch, to_numpy
 
-sys.path.append('waveglow/')
+sys.path.insert(0, 'waveglow/')
 
-def main(text='', textfile=None, lines=None, words=None, chars=None,
+def main(text, textfile=None, lines=None, words=None, chars=None,
         shift_pitch=0, shift_formant=0, stretch_time=1,
         shuffle_text=0, shuffle_code=0,
         channels=1, decoder_steps=None,
@@ -71,17 +71,21 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         decoder_steps (int): number of spectral frames to render.
             Each frame is about 11 ms. If not provided, tacotron will attempt to
             terminate itself when the text is finished.
-        speaker_id (int): index of speaker if using multi-speaker model
+        speaker_id (int): index of speaker (only if using multi-speaker model)
         draft (bool): Use fast Griffin-Lim vocoder instead of WaveGlow.
+        model (str): select which model to use.
+            single speaker models: 'nvidia_lj', 'mcv_6506', 'mcv_9ff9', 'mcv_c49c'.
+            multi speaker models: 'mcv_8_97'.
         model_dir (str): root directory for `tacotron_path` and `waveglow_path`.
         tacotron_file (str): override path to tacotron weights (relative to model_dir).
-        waveglow_path (str): override path to waveglow weights (relative to model_dir).
+        waveglow_file (str): override path to waveglow weights (relative to model_dir).
         outfile (str): file name to write output in wav format.
         verbose (bool): whether to print progress messages while running.
     """
     use_gpu = False
     glow_temperature = 0.666
-    known_models = ('nvidia_lj', 'mcv_8_97')
+    ss_models = ['nvidia_lj', 'mcv_6506', 'mcv_c49c', 'mcv_9ff9']
+    ms_models = ['mcv_8_97']
 
     if text is None and textfile is None:
         raise ValueError('must supply either text or textfile')
@@ -89,8 +93,10 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
         raise ValueError('stretch_time cannot be zero')
     if shuffle_text<0 or shuffle_code<0 or shuffle_text>1 or shuffle_code>1:
         raise ValueError('shuffle parameters should be between 0 and 1')
-    if model not in known_models:
-        raise ValueError(f'model must be one of {known_models}')
+    if model not in ss_models+ms_models:
+        raise ValueError(f"""model must be one of:
+            {ss_models} (single speaker),
+            or {ms_models} (multi speaker)""")
 
     # #### Prepare text input
 
@@ -122,10 +128,29 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
     load_kwargs = {} if hparams.gpu else {'map_location':'cpu'}
 
     # #### Load tacotron model
+    metadata = {}
     if model=='nvidia_lj':
         from model import Tacotron2
         tacotron_file = tacotron_file or 'tacotron2_statedict.pt'
         waveglow_file = waveglow_file or 'waveglow_256channels.pt'
+    elif model=='mcv_6506':
+        from model import Tacotron2
+        tacotron_file = tacotron_file or 'tacotron2_mcv_6506.pt'
+        waveglow_file = waveglow_file or 'waveglow_256channels.pt'
+        hparams.text_cleaners = ['multi_cleaners']
+        metadata = {'lang': 'tr'}
+    elif model=='mcv_c49c':
+        from model import Tacotron2
+        tacotron_file = tacotron_file or 'tacotron2_mcv_c49c.pt'
+        waveglow_file = waveglow_file or 'waveglow_256channels.pt'
+        hparams.text_cleaners = ['multi_cleaners']
+        metadata = {'lang': 'eo'}
+    elif model=='mcv_9ff9':
+        from model import Tacotron2
+        tacotron_file = tacotron_file or 'tacotron2_mcv_9ff9.pt'
+        waveglow_file = waveglow_file or 'waveglow_256channels.pt'
+        hparams.text_cleaners = ['multi_cleaners']
+        metadata = {'lang': 'cy'}
     elif model=='mcv_8_97':
         from model_cond import Tacotron2
         tacotron_file = tacotron_file or 'tacotron2_mcv_8_97.pt'
@@ -162,7 +187,9 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
     if verbose:
         print('tacotron inference...')
 
-    sequence = np.array(text_to_sequence(text, hparams.text_cleaners))[None, :]
+    sequence = np.array(text_to_sequence(
+        text, hparams.text_cleaners, metadata
+        ))[None, :]
     if verbose:
         print(f'normalized text: "{sequence_to_text(sequence[0])}"')
     sequence = to_torch(sequence, device, torch.long)
@@ -173,7 +200,7 @@ def main(text='', textfile=None, lines=None, words=None, chars=None,
     code_shuf_dist = int((shuffle_code+1)**np.log2(seq_len))
     code_perm = ut.partial_randperm(seq_len, code_shuf_amt, code_shuf_dist)
 
-    if model=='nvidia_lj':
+    if model in ss_models:
         with torch.no_grad():
             encoded = tacotron.encode(sequence)
 

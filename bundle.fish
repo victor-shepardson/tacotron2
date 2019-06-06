@@ -7,11 +7,14 @@
 
 set sndfile_lib (dirname (which python))/../lib/python3.7/site-packages/_soundfile_data/libsndfile.dylib
 
+set unihandecode_data (dirname (which python))'/../lib/python3.7/site-packages/unihandecode/*.pickle.bz2'
+
 pyinstaller inference.py -y -p "./waveglow" --clean\
     --add-data "waveglow/*.py:waveglow" \
+    --add-data $unihandecode_data:unihandecode \
     --add-binary $sndfile_lib:_soundfile_data \
     --hidden-import glow_old \
     --hidden-import sklearn.neighbors.typedefs \
     --hidden-import sklearn.neighbors.quad_tree \
     --hidden-import sklearn.tree --hidden-import sklearn.tree._utils
-#    --add-data "*.pt:."
+    #    --add-data "*.pt:."

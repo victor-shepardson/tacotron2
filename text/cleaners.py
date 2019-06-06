@@ -66,14 +66,14 @@ def convert_to_ascii(text):
   return unidecode(text)
 
 
-def basic_cleaners(text):
+def basic_cleaners(text, metadata=None):
   '''Basic pipeline that lowercases and collapses whitespace without transliteration.'''
   text = lowercase(text)
   text = collapse_whitespace(text)
   return text
 
 
-def transliteration_cleaners(text):
+def transliteration_cleaners(text, metadata=None):
   '''Pipeline for non-English text that transliterates to ASCII.'''
   text = convert_to_ascii(text)
   text = lowercase(text)
@@ -81,7 +81,7 @@ def transliteration_cleaners(text):
   return text
 
 
-def english_cleaners(text):
+def english_cleaners(text, metadata=None):
   '''Pipeline for English text, including number and abbreviation expansion.'''
   text = convert_to_ascii(text)
   text = lowercase(text)
@@ -97,7 +97,7 @@ def replace(s, d):
 
 def multi_cleaners(t, metadata):
     lang = metadata['lang']
-    foreign_alphabets = ['zh', 'ky', 'tt']
+    nonlatin_alphabets = ['zh', 'ky', 'tt']
     lang_replacements = {
         'tr': {
             'ğ': 'gh',
@@ -154,7 +154,7 @@ def multi_cleaners(t, metadata):
     if lang in ['tr']:
         t = t.replace('I', 'ı')
     # decode non-latin alphabets
-    if lang in foreign_alphabets:
+    if lang in nonlatin_alphabets:
         t = unidecode(t)
     # clean
     t = lowercase(t)
@@ -163,7 +163,7 @@ def multi_cleaners(t, metadata):
     if lang in lang_replacements:
         t = replace(t, lang_replacements[lang])
     # unidecode to catch anything else:
-    if lang not in foreign_alphabets:
+    if lang not in nonlatin_alphabets:
         t = unidecode(t)
     # additional ascii reductions:
     t = replace(t, post)
