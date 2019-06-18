@@ -25,6 +25,7 @@ from hparams import create_hparams
 from text import text_to_sequence, sequence_to_text
 from stft import STFT
 from audio_processing import griffin_lim
+from layers import TacotronSTFT
 
 import ultima_tools as ut
 from ultima_tools import to_torch, to_numpy
@@ -284,16 +285,24 @@ def main(text, textfile=None, lines=None, words=None, chars=None,
     soundfile.write(outfile, audio.T, hparams.sampling_rate, format='WAV')
 
 
-def griffin_lim_synth(spect, hparams, n_iters=30):
-    S = STFT(filter_length=hparams.filter_length, win_length=hparams.win_length, hop_length=hparams.hop_length)
-    mel_fs = librosa.mel_frequencies(
-        spect.shape[1], hparams.mel_fmin, hparams.mel_fmax)
-    spect = np.exp(spect)
-    spect = interpolate.interp1d(
-        mel_fs, spect, axis=1, fill_value=spect[:, -1, :], bounds_error=False
-    )(np.linspace(0, hparams.sampling_rate/2, hparams.filter_length//2+3)[1:-1])
+# def griffin_lim_synth(spect, hparams, n_iters=30):
+#     S = STFT(filter_length=hparams.filter_length, win_length=hparams.win_length, hop_length=hparams.hop_length)
+#     mel_fs = librosa.mel_frequencies(
+#         spect.shape[1], hparams.mel_fmin, hparams.mel_fmax)
+#     spect = np.exp(spect)
+#     spect = interpolate.interp1d(
+#         mel_fs, spect, axis=1, fill_value=spect[:, -1, :], bounds_error=False
+#     )(np.linspace(0, hparams.sampling_rate/2, hparams.filter_length//2+3)[1:-1])
+#     spect = torch.from_numpy(spect).float()
+#     return griffin_lim(spect, S, n_iters=n_iters, verbose=True)
+def griffin_lim_synth(spect, H, n_iters=30):
+    T = TacotronSTFT(
+        sampling_rate=H.sampling_rate, filter_length=H.filter_length,
+        hop_length=H.hop_length, win_length=H.win_length,
+        n_mel_channels=H.n_mel_channels, mel_fmin=H.mel_fmin, mel_fmax=H.mel_fmax)
     spect = torch.from_numpy(spect).float()
-    return griffin_lim(spect, S, n_iters=n_iters, verbose=True)
+    spect = T.mel_inv(spect)
+    return griffin_lim(spect, T.stft_fn, n_iters=n_iters, verbose=True)
 
 
 if __name__=='__main__':

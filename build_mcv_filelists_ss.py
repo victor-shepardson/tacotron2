@@ -23,7 +23,8 @@ def main(
         data_root='../data/mozilla_common_voice',
         prefix='mcv', # for output filenames
         whitelist_file=None,#'filelists/mcv_whitelist.pkl'#None
-        val_size = 100
+        val_size=100,
+        hparams=''
     ):
     langs = [
         d for d in os.listdir(data_root)
@@ -34,7 +35,7 @@ def main(
     max_speakers_per_lang = 16
 
     # create default hparams just for audio params
-    hparams = create_hparams()
+    hparams = create_hparams(hparams)
     stft = layers.TacotronSTFT(
         hparams.filter_length, hparams.hop_length, hparams.win_length,
         hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
@@ -164,15 +165,16 @@ def main(
 
     # save spectra with np.save
     if process_audio:
+        mel_dir = f'spect_{hparams.n_mel_channels}_{hparams.mel_fmin}_{hparams.mel_fmax}'
         for lang in langs:
-            for dir in ('spect', 'wav'):
+            for dir in (mel_dir, 'wav'):
                 path = os.path.join(data_root, lang, dir)
                 if not os.path.exists(path):
                     os.mkdir(path)
 
         for fname, lang, (w, s) in zip(tqdm(data.path), data.lang, gen_spectra(data)):
             np.save(f'{data_root}/{lang}/wav/{fname}', w)
-            np.save(f'{data_root}/{lang}/spect/{fname}', s)
+            np.save(f'{data_root}/{lang}/{mel_dir}/{fname}', s)
 
     # write filelists
     for data, dest in (
@@ -182,7 +184,7 @@ def main(
             for fname, text, speaker, lang, lang_idx in zip(
                     tqdm(data.path, desc='writing '+dest),
                     data.sentence, data.speaker, data.lang, data.lang_idx):
-                fl.write(f'{data_root}/{lang}/spect/{fname}.npy|{text}|{speaker}|{lang_idx}\n')
+                fl.write(f'{data_root}/{lang}/{mel_dir}/{fname}.npy|{text}|{speaker}|{lang_idx}\n')
 
     for data, dest in (
             (train_data, f'waveglow/{prefix}_train_filelist.txt'),

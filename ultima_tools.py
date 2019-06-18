@@ -137,3 +137,13 @@ def sample_chunks(chunks, n):
     start = np.random.randint(len(chunks)-n) if n<len(chunks) else 0
     chunks = chunks[start:start+n]
     return chunks[::stride]
+
+def mel_inv(spect, hparams):
+    """transform the log-mel spectrogram to linear STFT"""
+    mel_fs = librosa.mel_frequencies(
+        spect.shape[1], hparams.mel_fmin, hparams.mel_fmax)
+    spect = np.exp(spect)
+    spect = interpolate.interp1d(
+        mel_fs, spect, axis=1, fill_value=spect[:, -1, :], bounds_error=False
+    )(np.linspace(0, hparams.sampling_rate/2, hparams.filter_length//2+3)[1:-1])
+    return spect

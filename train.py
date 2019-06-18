@@ -11,6 +11,7 @@ import time
 import argparse
 import math
 from numpy import finfo
+import itertools as it
 
 import torch
 from distributed import apply_gradient_allreduce
@@ -99,11 +100,24 @@ def load_model(hparams):
     return model
 
 
+# def warm_start_model(checkpoint_path, model):
+#     assert os.path.isfile(checkpoint_path)
+#     print("Warm starting model from checkpoint '{}'".format(checkpoint_path))
+#     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
+#     model.load_state_dict(checkpoint_dict['state_dict'])
+#     return model
 def warm_start_model(checkpoint_path, model):
     assert os.path.isfile(checkpoint_path)
     print("Warm starting model from checkpoint '{}'".format(checkpoint_path))
-    checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
-    model.load_state_dict(checkpoint_dict['state_dict'])
+    state_dict = torch.load(checkpoint_path, map_location='cpu')['state_dict']
+    # state_dict = {
+    #     k:v for k,v in state_dict.items()
+    #     if 'encoder' not in k and 'location' not in k and 'embedding' not in k}
+    for k,v in it.chain(model.named_parameters(), model.named_buffers()):
+        if v.shape != state_dict[k].shape:
+            print(f'ignoring "{k}" with different shape')
+            state_dict[k] = v
+    model.load_state_dict(state_dict, False)
     return model
 
 
