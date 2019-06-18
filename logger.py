@@ -1,3 +1,4 @@
+import sys, os, subprocess
 import random
 import torch
 from tensorboardX import SummaryWriter
@@ -70,3 +71,9 @@ class Tacotron2Logger(SummaryWriter):
             iteration)
         if texts:
             self.add_text('texts', '\n'.join(texts), iteration)
+
+if __name__=='__main__':
+    print('starting tensorboard')
+    subprocess.run(
+        f'tensorboard --logdir {sys.argv[1]} > tensorboard.log 2>&1',
+        shell=True)
