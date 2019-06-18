@@ -6,6 +6,11 @@
 
 # -c tacotron2_statedict.pt --warm_start
 
+# hi res LJ
+# python train.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,n_mel_channels=240,mel_fmax=11000" --warm_start -c tacotron2_statedict.pt
+
+# python train.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,n_mel_channels=240,mel_fmax=11000" --warm_start -c tacotron2_statedict.pt
+
 import os
 import time
 import argparse
@@ -114,9 +119,13 @@ def warm_start_model(checkpoint_path, model):
     #     k:v for k,v in state_dict.items()
     #     if 'encoder' not in k and 'location' not in k and 'embedding' not in k}
     for k,v in it.chain(model.named_parameters(), model.named_buffers()):
-        if v.shape != state_dict[k].shape:
-            print(f'ignoring "{k}" with different shape')
-            state_dict[k] = v
+        old_shape = state_dict[k].shape
+        if v.shape != old_shape:
+            # print(f'ignoring "{k}" with different shape')
+            # state_dict[k] = v
+            print(f'resampling "{k}" from {old_shape} to {v.shape}')
+            state_dict[k] = torch.nn.functional.interpolate(
+                state_dict[k][None, None, ...], v.shape)[0,0]
     model.load_state_dict(state_dict, False)
     return model
 
