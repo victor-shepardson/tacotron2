@@ -42,15 +42,17 @@ class ConvNorm(torch.nn.Module):
 
 class TacotronSTFT(torch.nn.Module):
     def __init__(self, filter_length=1024, hop_length=256, win_length=1024,
-                 n_mel_channels=80, sampling_rate=22050, mel_fmin=0.0,
-                 mel_fmax=8000.0):
+                 n_spect_channels=80, sampling_rate=22050, mel_fmin=0.0,
+                 mel_fmax=8000.0, use_mel=True):
         super(TacotronSTFT, self).__init__()
-        self.n_mel_channels = n_mel_channels
+        self.use_mel = use_mel
+        self.n_spect_channels = n_spect_channels
         self.sampling_rate = sampling_rate
         self.stft_fn = STFT(filter_length, hop_length, win_length)
         mel_basis = librosa_mel_fn(
-            sampling_rate, filter_length, n_mel_channels, mel_fmin, mel_fmax)
-        inv_mel_basis = np.maximum(np.linalg.pinv(mel_basis), 0)
+            sampling_rate, filter_length, n_spect_channels, mel_fmin, mel_fmax)
+        # inv_mel_basis = np.maximum(np.linalg.pinv(mel_basis), 0)
+        inv_mel_basis = (mel_basis / np.maximum(mel_basis.sum(0), 1e-3)).T / np.maximum(mel_basis.sum(1), 1e-3)
         mel_basis = torch.from_numpy(mel_basis).float()
         inv_mel_basis = torch.from_numpy(inv_mel_basis).float()
         self.register_buffer('mel_basis', mel_basis)
@@ -72,7 +74,7 @@ class TacotronSTFT(torch.nn.Module):
 
         RETURNS
         -------
-        mel_output: torch.FloatTensor of shape (B, n_mel_channels, T)
+        mel_output: torch.FloatTensor of shape (B, n_spect_channels, T)
         """
         assert(torch.min(y.data) >= -1)
         assert(torch.max(y.data) <= 1)
@@ -87,3 +89,20 @@ class TacotronSTFT(torch.nn.Module):
         lin_output = self.spectral_de_normalize(y)
         lin_output = torch.matmul(self.inv_mel_basis, lin_output).clamp(1e-5)
         return lin_output
+
+    def loglin_spectrogram(self, y):
+        assert(torch.min(y.data) >= -1)
+        assert(torch.max(y.data) <= 1)
+
+        magnitudes, phases = self.stft_fn.transform(y)
+        magnitudes = magnitudes.data
+        return self.spectral_normalize(magnitudes)
+
+    def loglin_inv(self, y):
+        return self.spectral_de_normalize(y)
+
+    def spectrogram(self, y):
+        return self.mel_spectrogram(y) if self.use_mel else self.loglin_spectrogram(y)
+
+    def inv_spectrogram(self, y):
+        return self.mel_inv(y) if self.use_mel else self.loglin_inv(y)

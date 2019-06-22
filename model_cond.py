@@ -46,7 +46,7 @@ class Attention(nn.Module):
         """
         PARAMS
         ------
-        query: decoder output (batch, n_mel_channels * n_frames_per_step)
+        query: decoder output (batch, n_spect_channels * n_frames_per_step)
         processed_memory: processed encoder outputs (B, T_in, attention_dim)
         attention_weights_cat: cumulative and prev. att weights (B, 2, max_time)
 
@@ -112,7 +112,7 @@ class Postnet(nn.Module):
 
         self.convolutions.append(
             nn.Sequential(
-                ConvNorm(hparams.n_mel_channels, hparams.postnet_embedding_dim,
+                ConvNorm(hparams.n_spect_channels, hparams.postnet_embedding_dim,
                          kernel_size=hparams.postnet_kernel_size, stride=1,
                          padding=int((hparams.postnet_kernel_size - 1) / 2),
                          dilation=1, w_init_gain='tanh'),
@@ -132,11 +132,11 @@ class Postnet(nn.Module):
 
         self.convolutions.append(
             nn.Sequential(
-                ConvNorm(hparams.postnet_embedding_dim, hparams.n_mel_channels,
+                ConvNorm(hparams.postnet_embedding_dim, hparams.n_spect_channels,
                          kernel_size=hparams.postnet_kernel_size, stride=1,
                          padding=int((hparams.postnet_kernel_size - 1) / 2),
                          dilation=1, w_init_gain='linear'),
-                nn.BatchNorm1d(hparams.n_mel_channels))
+                nn.BatchNorm1d(hparams.n_spect_channels))
             )
 
     def forward(self, x):
@@ -218,7 +218,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, hparams):
         super(Decoder, self).__init__()
-        self.n_mel_channels = hparams.n_mel_channels
+        self.n_spect_channels = hparams.n_spect_channels
         self.n_frames_per_step = hparams.n_frames_per_step
         self.encoder_embedding_dim = hparams.encoder_embedding_dim
         self.attention_rnn_dim = hparams.attention_rnn_dim
@@ -230,7 +230,7 @@ class Decoder(nn.Module):
         self.p_decoder_dropout = hparams.p_decoder_dropout
 
         self.prenet = Prenet(
-            hparams.n_mel_channels * hparams.n_frames_per_step,
+            hparams.n_spect_channels * hparams.n_frames_per_step,
             [hparams.prenet_dim, hparams.prenet_dim])
 
         self.attention_rnn = nn.LSTMCell(
@@ -253,7 +253,7 @@ class Decoder(nn.Module):
 
         self.linear_projection = LinearNorm(
             hparams.decoder_rnn_dim + hparams.encoder_embedding_dim,
-            hparams.n_mel_channels * hparams.n_frames_per_step)
+            hparams.n_spect_channels * hparams.n_frames_per_step)
 
         self.gate_layer = LinearNorm(
             hparams.decoder_rnn_dim + hparams.encoder_embedding_dim, 1,
@@ -271,7 +271,7 @@ class Decoder(nn.Module):
         """
         B = memory.size(0)
         decoder_input = Variable(memory.data.new(
-            B, self.n_mel_channels * self.n_frames_per_step).zero_())
+            B, self.n_spect_channels * self.n_frames_per_step).zero_())
         return decoder_input
 
     def initialize_decoder_states(self, memory, mask, speaker, language):
@@ -322,12 +322,12 @@ class Decoder(nn.Module):
         inputs: processed decoder inputs
 
         """
-        # (B, n_mel_channels, T_out) -> (B, T_out, n_mel_channels)
+        # (B, n_spect_channels, T_out) -> (B, T_out, n_spect_channels)
         decoder_inputs = decoder_inputs.transpose(1, 2)
         decoder_inputs = decoder_inputs.view(
             decoder_inputs.size(0),
             int(decoder_inputs.size(1)/self.n_frames_per_step), -1)
-        # (B, T_out, n_mel_channels) -> (T_out, B, n_mel_channels)
+        # (B, T_out, n_spect_channels) -> (T_out, B, n_spect_channels)
         decoder_inputs = decoder_inputs.transpose(0, 1)
         return decoder_inputs
 
@@ -353,12 +353,12 @@ class Decoder(nn.Module):
         # (T_out, B) -> (B, T_out)
         gate_outputs = torch.stack(gate_outputs).transpose(0, 1)
         gate_outputs = gate_outputs.contiguous()
-        # (T_out, B, n_mel_channels) -> (B, T_out, n_mel_channels)
+        # (T_out, B, n_spect_channels) -> (B, T_out, n_spect_channels)
         mel_outputs = torch.stack(mel_outputs).transpose(0, 1).contiguous()
         # decouple frames per step
         mel_outputs = mel_outputs.view(
-            mel_outputs.size(0), -1, self.n_mel_channels)
-        # (B, T_out, n_mel_channels) -> (B, n_mel_channels, T_out)
+            mel_outputs.size(0), -1, self.n_spect_channels)
+        # (B, T_out, n_spect_channels) -> (B, n_spect_channels, T_out)
         mel_outputs = mel_outputs.transpose(1, 2)
 
         return mel_outputs, gate_outputs, alignments
@@ -510,7 +510,7 @@ class Tacotron2(nn.Module):
         super(Tacotron2, self).__init__()
         self.mask_padding = hparams.mask_padding
         self.fp16_run = hparams.fp16_run
-        self.n_mel_channels = hparams.n_mel_channels
+        self.n_spect_channels = hparams.n_spect_channels
         self.n_frames_per_step = hparams.n_frames_per_step
 
         self.symbol_embedding = nn.Embedding(
@@ -578,7 +578,7 @@ class Tacotron2(nn.Module):
     def parse_output(self, outputs, output_lengths=None):
         if self.mask_padding and output_lengths is not None:
             mask = ~get_mask_from_lengths(output_lengths, device=self.device())
-            mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
+            mask = mask.expand(self.n_spect_channels, mask.size(0), mask.size(1))
             mask = mask.permute(1, 0, 2)
 
             outputs[0].data.masked_fill_(mask, 0.0)

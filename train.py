@@ -1,8 +1,8 @@
 # CPU test:
-# python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,load_mel_from_disk=True,text_cleaners=['multi_cleaners']"
+# python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 0 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,load_spect_from_disk=True,text_cleaners=['multi_cleaners']"
 
 # GPU train:
-# python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,load_mel_from_disk=True,text_cleaners=['multi_cleaners']"
+# python train.py -o ./checkpoints_6506 -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_6506_train_filelist.txt',validation_files='filelists/mcv_6506_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,load_spect_from_disk=True,text_cleaners=['multi_cleaners']"
 
 # -c tacotron2_statedict.pt --warm_start
 
@@ -211,7 +211,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     if hparams.distributed_run:
         model = apply_gradient_allreduce(model)
 
-    criterion = Tacotron2Loss()
+    criterion = Tacotron2Loss(use_mel=hparams.use_mel)
 
     logger = prepare_directories_and_logger(
         output_directory, log_directory, rank)

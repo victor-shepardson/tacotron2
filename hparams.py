@@ -36,7 +36,7 @@ def create_hparams(hparams_string=None, verbose=False):
         ################################
         # Data Parameters             #
         ################################
-        load_mel_from_disk=False,
+        load_spect_from_disk=False,
         training_files='filelists/ljs_audio_text_train_filelist.txt',
         validation_files='filelists/ljs_audio_text_val_filelist.txt',
         text_cleaners=['english_cleaners'],
@@ -52,6 +52,8 @@ def create_hparams(hparams_string=None, verbose=False):
         n_mel_channels=80,
         mel_fmin=0.0,
         mel_fmax=8000.0,
+        use_mel=True,
+        n_spect_channels=None,
 
         ################################
         # Model Parameters             #
@@ -104,6 +106,11 @@ def create_hparams(hparams_string=None, verbose=False):
     if hparams_string:
         # tf.logging.info('Parsing command line hparams: %s', hparams_string)
         hparams.parse(hparams_string)
+
+    hparams.n_spect_channels = (
+        hparams.n_mel_channels if hparams.use_mel
+        else hparams.filter_length//2 + 1
+        )
 
 #     if verbose:
 #         tf.logging.info('Final parsed hparams: %s', hparams.values())

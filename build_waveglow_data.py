@@ -22,7 +22,7 @@ def main(tacotron_path, tacotron_filelist, gpu=False, batch_size=48):
     hparams.encoder_n_convolutions = 4
     hparams.gpu=gpu
     hparams.text_cleaners = ['multi_cleaners']#['transliteration_cleaners']
-    hparams.load_mel_from_disk = True
+    hparams.load_spect_from_disk = True
     hparams.batch_size = batch_size
 
 

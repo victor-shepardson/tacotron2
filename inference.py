@@ -299,7 +299,7 @@ def griffin_lim_synth(spect, H, n_iters=30):
     T = TacotronSTFT(
         sampling_rate=H.sampling_rate, filter_length=H.filter_length,
         hop_length=H.hop_length, win_length=H.win_length,
-        n_mel_channels=H.n_mel_channels, mel_fmin=H.mel_fmin, mel_fmax=H.mel_fmax)
+        n_spect_channels=H.n_spect_channels, mel_fmin=H.mel_fmin, mel_fmax=H.mel_fmax)
     spect = torch.from_numpy(spect).float()
     spect = T.mel_inv(spect)
     return griffin_lim(spect, T.stft_fn, n_iters=n_iters, verbose=True)

@@ -1,7 +1,7 @@
 # Tacotron 2 (without wavenet)
 
 PyTorch implementation of [Natural TTS Synthesis By Conditioning
-Wavenet On Mel Spectrogram Predictions](https://arxiv.org/pdf/1712.05884.pdf). 
+Wavenet On Mel Spectrogram Predictions](https://arxiv.org/pdf/1712.05884.pdf).
 
 This implementation includes **distributed** and **fp16** support
 and uses the [LJSpeech dataset](https://keithito.com/LJ-Speech-Dataset/).
@@ -24,9 +24,9 @@ Visit our [website] for audio samples using our published [Tacotron 2] and
 3. CD into this repo: `cd tacotron2`
 4. Initialize submodule: `git submodule init; git submodule update`
 5. Update .wav paths: `sed -i -- 's,DUMMY,ljs_dataset_folder/wavs,g' filelists/*.txt`
-    - Alternatively, set `load_mel_from_disk=True` in `hparams.py` and update mel-spectrogram paths 
+    - Alternatively, set `load_spect_from_disk=True` in `hparams.py` and update mel-spectrogram paths
 6. Install [PyTorch 1.0]
-7. Install python requirements or build docker image 
+7. Install python requirements or build docker image
     - Install python requirements: `pip install -r requirements.txt`
 
 ## Training
@@ -40,10 +40,10 @@ Visit our [website] for audio samples using our published [Tacotron 2] and
 1. Download our published [Tacotron 2] model
 2. Download our published [WaveGlow] model
 3. `jupyter notebook --ip=127.0.0.1 --port=31337`
-4. Load inference.ipynb 
+4. Load inference.ipynb
 
 N.b.  When performing Mel-Spectrogram to Audio synthesis, make sure Tacotron 2
-and the Mel decoder were trained on the same mel-spectrogram representation. 
+and the Mel decoder were trained on the same mel-spectrogram representation.
 
 
 ## Related repos

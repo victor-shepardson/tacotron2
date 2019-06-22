@@ -33,7 +33,7 @@ val_size = 200*len(langs)
 hparams = create_hparams()
 stft = layers.TacotronSTFT(
     hparams.filter_length, hparams.hop_length, hparams.win_length,
-    hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
+    hparams.n_spect_channels, hparams.sampling_rate, hparams.mel_fmin,
     hparams.mel_fmax)
 
 def gen_tables(fname):

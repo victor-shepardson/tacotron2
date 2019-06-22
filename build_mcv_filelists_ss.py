@@ -39,7 +39,7 @@ def main(
     stft = layers.TacotronSTFT(
         hparams.filter_length, hparams.hop_length, hparams.win_length,
         hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
-        hparams.mel_fmax)
+        hparams.mel_fmax, hparams.use_mel)
 
     def gen_tables(fname):
         for i,l in enumerate(langs):
@@ -165,16 +165,19 @@ def main(
 
     # save spectra with np.save
     if process_audio:
-        mel_dir = f'spect_{hparams.n_mel_channels}_{hparams.mel_fmin}_{hparams.mel_fmax}'
+        if hparams.use_mel:
+            spect_dir = f'spect_{hparams.n_mel_channels}_{hparams.mel_fmin}_{hparams.mel_fmax}'
+        else:
+            spect_dir = f'spect_lin_{hparams.filter_length}'
         for lang in langs:
-            for dir in (mel_dir, 'wav'):
+            for dir in (spect_dir, 'wav'):
                 path = os.path.join(data_root, lang, dir)
                 if not os.path.exists(path):
                     os.mkdir(path)
 
         for fname, lang, (w, s) in zip(tqdm(data.path), data.lang, gen_spectra(data)):
             np.save(f'{data_root}/{lang}/wav/{fname}', w)
-            np.save(f'{data_root}/{lang}/{mel_dir}/{fname}', s)
+            np.save(f'{data_root}/{lang}/{spect_dir}/{fname}', s)
 
     # write filelists
     for data, dest in (
@@ -184,7 +187,7 @@ def main(
             for fname, text, speaker, lang, lang_idx in zip(
                     tqdm(data.path, desc='writing '+dest),
                     data.sentence, data.speaker, data.lang, data.lang_idx):
-                fl.write(f'{data_root}/{lang}/{mel_dir}/{fname}.npy|{text}|{speaker}|{lang_idx}\n')
+                fl.write(f'{data_root}/{lang}/{spect_dir}/{fname}.npy|{text}|{speaker}|{lang_idx}\n')
 
     for data, dest in (
             (train_data, f'waveglow/{prefix}_train_filelist.txt'),

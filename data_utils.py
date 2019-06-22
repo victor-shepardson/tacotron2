@@ -37,11 +37,11 @@ class TextMelLoader(torch.utils.data.Dataset):
         self.text_cleaners = hparams.text_cleaners
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
-        self.load_mel_from_disk = hparams.load_mel_from_disk
+        self.load_spect_from_disk = hparams.load_spect_from_disk
         self.stft = layers.TacotronSTFT(
             hparams.filter_length, hparams.hop_length, hparams.win_length,
             hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
-            hparams.mel_fmax)
+            hparams.mel_fmax, hparams.use_mel)
         random.seed(1234)
         # random.shuffle(self.audiopaths_and_text)
 
@@ -61,7 +61,7 @@ class TextMelLoader(torch.utils.data.Dataset):
         return r
 
     def get_mel(self, filename):
-        if not self.load_mel_from_disk:
+        if not self.load_spect_from_disk:
             if '.wav' in filename:
                 audio, sampling_rate = load_wav_to_torch(filename)
             else:
@@ -72,13 +72,13 @@ class TextMelLoader(torch.utils.data.Dataset):
             audio_norm = audio / self.max_wav_value
             audio_norm = audio_norm.unsqueeze(0)
             audio_norm = torch.autograd.Variable(audio_norm, requires_grad=False)
-            melspec = self.stft.mel_spectrogram(audio_norm)
+            melspec = self.stft.spectrogram(audio_norm)
             melspec = torch.squeeze(melspec, 0)
         else:
             melspec = torch.from_numpy(np.load(filename))
-            assert melspec.size(0) == self.stft.n_mel_channels, (
+            assert melspec.size(0) == self.stft.n_spect_channels, (
                 'Mel dimension mismatch: given {}, expected {}'.format(
-                    melspec.size(0), self.stft.n_mel_channels))
+                    melspec.size(0), self.stft.n_spect_channels))
 
         return melspec
 
