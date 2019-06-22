@@ -18,6 +18,7 @@ class Tacotron2Loss(nn.Module):
 
         if not self.use_mel:
             # quick n dirty weights for linear spectrogram
+            n_bins = mel_target.shape[1]
             bin_weights = 2**(torch.linspace(-.1, 1, n_bins).clamp(0)*-6)+0.05
             bin_weights[0] = 0.05
             bin_weights = bin_weights[None, :, None]
