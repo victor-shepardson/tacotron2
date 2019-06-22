@@ -21,10 +21,10 @@ class Tacotron2Loss(nn.Module):
             bin_weights[0] = 0.05
             bin_weights = bin_weights[None, :, None]
 
-            mel_loss = (
+            mel_loss = torch.mean((
                 (mel_out - mel_target)**2
                 + (mel_out_postnet - mel_target).abs()
-                ) * bin_weights).mean()
+                ) * bin_weights)
         else:
             mel_loss = F.mse_loss(mel_out, mel_target) \
                 + F.mse_loss(mel_out_postnet, mel_target)
