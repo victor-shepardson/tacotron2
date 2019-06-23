@@ -107,6 +107,10 @@ class STFT(torch.nn.Module):
 
         return magnitude, phase
 
+    @property
+    def device(self):
+        return self.forward_basis.device
+
     def inverse(self, magnitude, phase=None, complex=False):
         if complex:
             complex_spect = magnitude
@@ -128,9 +132,9 @@ class STFT(torch.nn.Module):
                 dtype=np.float32)
             # remove modulation effects
             approx_nonzero_indices = torch.from_numpy(
-                np.where(window_sum > tiny(window_sum))[0])
+                np.where(window_sum > tiny(window_sum))[0]).to(self.device)
             window_sum = torch.autograd.Variable(
-                torch.from_numpy(window_sum), requires_grad=False)
+                torch.from_numpy(window_sum), requires_grad=False).to(self.device)
             inverse_transform[:, :, approx_nonzero_indices] /= window_sum[approx_nonzero_indices]
 
             # scale by hop ratio
