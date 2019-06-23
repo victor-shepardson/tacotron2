@@ -26,16 +26,21 @@ class Tacotron2Loss(nn.Module):
             bin_weights[0] = 0.05
             bin_weights = bin_weights[None, :, None]
 
-            mel_loss = torch.mean((
-                (mel_out - mel_target)**2
-                + (mel_out_postnet - mel_target).abs()
-                ) * bin_weights)
+            # mel_loss = torch.mean((
+            #     (mel_out - mel_target)**2
+            #     + (mel_out_postnet - mel_target).abs()
+            #     ) * bin_weights)
+            prenet_loss = torch.mean(
+                (mel_out - mel_target)**2 * bin_weights)
+            postnet_loss = torch.mean(
+                (mel_out - mel_target).abs() * bin_weights)
+            mel_loss = prenet_loss + postnet_loss
             if self.cycle_xform is not None:
                 consistency_loss = F.mse_loss(
                     mel_out_postnet,
                     self.cycle_xform.reproject(mel_out_postnet))
                 mel_loss = mel_loss + consistency_loss
-                print(mel_loss.item(), consistency_loss.item())
+                print(prenet_loss.item(), postnet_loss.item(), consistency_loss.item())
         else:
             mel_loss = F.mse_loss(mel_out, mel_target) \
                 + F.mse_loss(mel_out_postnet, mel_target)

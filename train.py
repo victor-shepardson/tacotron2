@@ -15,6 +15,7 @@
 # python train.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,use_mel=False,use_complex=True" --warm_start -c tacotron2_statedict.pt
 
 import os
+import copy
 import time
 import argparse
 import math
@@ -34,7 +35,6 @@ from data_utils import TextMelLoader, TextMelCollate
 from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
 from hparams import create_hparams
-
 
 def batchnorm_to_float(module):
     """Converts batch norm modules to FP32"""
@@ -219,9 +219,12 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
     train_loader, valset, collate_fn = prepare_dataloaders(hparams)
 
-    criterion = Tacotron2Loss(
-        use_mel=hparams.use_mel,
-        cycle_xform=valset.stft if hparams.use_complex else None)
+    cycle_xform = None
+    if hparams.use_complex:
+        cycle_xform = copy.deepcopy(valset.stft)
+        if hparams.gpu:
+            cycle_xform.cuda()
+    criterion = Tacotron2Loss(use_mel=hparams.use_mel, cycle_xform=cycle_xform)
 
     # Load checkpoint if one exists
     iteration = 0
