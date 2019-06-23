@@ -28,7 +28,7 @@ class Tacotron2Loss(nn.Module):
             bin_weights[0] = 0.05
             bin_weights = bin_weights[None, :, None]
             if self.cycle_xform is not None:
-                binweights = torch.cat((bin_weights, binweights), dim=1)
+                bin_weights = torch.cat((bin_weights, bin_weights), dim=1)
 
             # mel_loss = torch.mean((
             #     (mel_out - mel_target)**2
