@@ -20,11 +20,15 @@ class Tacotron2Loss(nn.Module):
         if not self.use_mel:
             # quick n dirty weights for linear spectrogram
             n_bins = mel_target.shape[1]
+            if self.cycle_xform is not None:
+                n_bins = n_bins//2
             bin_weights = 2**(torch.linspace(
                 -.1, 1, n_bins, device=mel_out.device
                 ).clamp(0)*-6)+0.05
             bin_weights[0] = 0.05
             bin_weights = bin_weights[None, :, None]
+            if self.cycle_xform is not None:
+                binweights = torch.cat((bin_weights, binweights), dim=1)
 
             # mel_loss = torch.mean((
             #     (mel_out - mel_target)**2
