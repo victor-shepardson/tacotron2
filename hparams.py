@@ -13,6 +13,12 @@ class HParams(object):
             k, v = line.split('=')
             setattr(self, k, eval(v))
 
+    @property
+    def n_spect_channels(self):
+        if self.use_mel:
+            return self.n_mel_channels
+        return (self.filter_length//2 + 1) * (int(self.use_complex) + 1)
+
 
 def create_hparams(hparams_string=None, verbose=False):
     """Create model hyperparameters. Parse nondefault from given string."""
@@ -53,7 +59,7 @@ def create_hparams(hparams_string=None, verbose=False):
         mel_fmin=0.0,
         mel_fmax=8000.0,
         use_mel=True,
-        n_spect_channels=None,
+        use_complex=False,
 
         ################################
         # Model Parameters             #
@@ -106,11 +112,6 @@ def create_hparams(hparams_string=None, verbose=False):
     if hparams_string:
         # tf.logging.info('Parsing command line hparams: %s', hparams_string)
         hparams.parse(hparams_string)
-
-    hparams.n_spect_channels = (
-        hparams.n_mel_channels if hparams.use_mel
-        else hparams.filter_length//2 + 1
-        )
 
 #     if verbose:
 #         tf.logging.info('Final parsed hparams: %s', hparams.values())

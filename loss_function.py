@@ -3,9 +3,10 @@ from torch import nn
 import torch.nn.functional as F
 
 class Tacotron2Loss(nn.Module):
-    def __init__(self, use_mel=True):
+    def __init__(self, use_mel=True, cycle_xform=None):
         super(Tacotron2Loss, self).__init__()
         self.use_mel = use_mel
+        self.cycle_xform = cycle_xform
 
     def forward(self, model_output, targets, return_parts=False, use_mel=True):
         mel_target, gate_target = targets[0], targets[1]
@@ -29,6 +30,12 @@ class Tacotron2Loss(nn.Module):
                 (mel_out - mel_target)**2
                 + (mel_out_postnet - mel_target).abs()
                 ) * bin_weights)
+            if self.cycle_xform is not None:
+                consistency_loss = F.mse_loss(
+                    mel_out_postnet,
+                    self.cycle_xform.reproject(mel_out_postnet))
+                mel_loss = mel_loss + consistency_loss
+                print(mel_loss.item(), consistency_loss.item())
         else:
             mel_loss = F.mse_loss(mel_out, mel_target) \
                 + F.mse_loss(mel_out_postnet, mel_target)

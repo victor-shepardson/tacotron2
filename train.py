@@ -11,6 +11,9 @@
 
 # python train.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,n_mel_channels=240,mel_fmax=11000" --warm_start -c tacotron2_statedict.pt
 
+# complex LJ
+# python train.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,use_mel=False,use_complex=True" --warm_start -c tacotron2_statedict.pt
+
 import os
 import time
 import argparse
@@ -211,12 +214,14 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     if hparams.distributed_run:
         model = apply_gradient_allreduce(model)
 
-    criterion = Tacotron2Loss(use_mel=hparams.use_mel)
-
     logger = prepare_directories_and_logger(
         output_directory, log_directory, rank)
 
     train_loader, valset, collate_fn = prepare_dataloaders(hparams)
+
+    criterion = Tacotron2Loss(
+        use_mel=hparams.use_mel,
+        cycle_xform=valset.stft if hparams.use_complex else None)
 
     # Load checkpoint if one exists
     iteration = 0

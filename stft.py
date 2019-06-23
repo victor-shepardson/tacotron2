@@ -74,7 +74,7 @@ class STFT(torch.nn.Module):
         self.register_buffer('forward_basis', forward_basis.float())
         self.register_buffer('inverse_basis', inverse_basis.float())
 
-    def transform(self, input_data):
+    def transform(self, input_data, complex=False):
         num_batches = input_data.size(0)
         num_samples = input_data.size(1)
 
@@ -94,6 +94,9 @@ class STFT(torch.nn.Module):
             stride=self.hop_length,
             padding=0)
 
+        if complex:
+            return forward_transform
+
         cutoff = int((self.filter_length / 2) + 1)
         real_part = forward_transform[:, :cutoff, :]
         imag_part = forward_transform[:, cutoff:, :]
@@ -104,12 +107,16 @@ class STFT(torch.nn.Module):
 
         return magnitude, phase
 
-    def inverse(self, magnitude, phase):
-        recombine_magnitude_phase = torch.cat(
-            [magnitude*torch.cos(phase), magnitude*torch.sin(phase)], dim=1)
+    def inverse(self, magnitude, phase=None, complex=False):
+        if complex:
+            complex_spect = magnitude
+        else:
+            assert phase is not None
+            complex_spect = torch.cat(
+                [magnitude*torch.cos(phase), magnitude*torch.sin(phase)], dim=1)
 
         inverse_transform = F.conv_transpose1d(
-            recombine_magnitude_phase,
+            complex_spect,
             Variable(self.inverse_basis, requires_grad=False),
             stride=self.hop_length,
             padding=0)

@@ -41,7 +41,7 @@ class TextMelLoader(torch.utils.data.Dataset):
         self.stft = layers.TacotronSTFT(
             hparams.filter_length, hparams.hop_length, hparams.win_length,
             hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
-            hparams.mel_fmax, hparams.use_mel)
+            hparams.mel_fmax, hparams.use_mel, hparams.use_complex)
         random.seed(1234)
         # random.shuffle(self.audiopaths_and_text)
 

@@ -43,20 +43,22 @@ class ConvNorm(torch.nn.Module):
 class TacotronSTFT(torch.nn.Module):
     def __init__(self, filter_length=1024, hop_length=256, win_length=1024,
                  n_spect_channels=80, sampling_rate=22050, mel_fmin=0.0,
-                 mel_fmax=8000.0, use_mel=True):
+                 mel_fmax=8000.0, use_mel=True, use_complex=False):
         super(TacotronSTFT, self).__init__()
         self.use_mel = use_mel
+        self.use_complex = use_complex
         self.n_spect_channels = n_spect_channels
         self.sampling_rate = sampling_rate
         self.stft_fn = STFT(filter_length, hop_length, win_length)
-        mel_basis = librosa_mel_fn(
-            sampling_rate, filter_length, n_spect_channels, mel_fmin, mel_fmax)
-        # inv_mel_basis = np.maximum(np.linalg.pinv(mel_basis), 0)
-        inv_mel_basis = (mel_basis / np.maximum(mel_basis.sum(0), 1e-3)).T / np.maximum(mel_basis.sum(1), 1e-3)
-        mel_basis = torch.from_numpy(mel_basis).float()
-        inv_mel_basis = torch.from_numpy(inv_mel_basis).float()
-        self.register_buffer('mel_basis', mel_basis)
-        self.register_buffer('inv_mel_basis', inv_mel_basis)
+        if self.use_mel:
+            mel_basis = librosa_mel_fn(
+                sampling_rate, filter_length, n_spect_channels, mel_fmin, mel_fmax)
+            # inv_mel_basis = np.maximum(np.linalg.pinv(mel_basis), 0)
+            inv_mel_basis = (mel_basis / np.maximum(mel_basis.sum(0), 1e-3)).T / np.maximum(mel_basis.sum(1), 1e-3)
+            mel_basis = torch.from_numpy(mel_basis).float()
+            inv_mel_basis = torch.from_numpy(inv_mel_basis).float()
+            self.register_buffer('mel_basis', mel_basis)
+            self.register_buffer('inv_mel_basis', inv_mel_basis)
 
     def spectral_normalize(self, magnitudes):
         output = dynamic_range_compression(magnitudes)
@@ -98,11 +100,31 @@ class TacotronSTFT(torch.nn.Module):
         magnitudes = magnitudes.data
         return self.spectral_normalize(magnitudes)
 
+    def complex_spectrogram(self, y):
+        return self.stft_fn.transform(y, complex=True)
+
     def loglin_inv(self, y):
         return self.spectral_de_normalize(y)
 
     def spectrogram(self, y):
-        return self.mel_spectrogram(y) if self.use_mel else self.loglin_spectrogram(y)
+        if self.use_mel:
+            return self.mel_spectrogram(y)
+        if self.use_complex:
+            return self.complex_spectrogram(y)
+        return self.loglin_spectrogram(y)
 
     def inv_spectrogram(self, y):
-        return self.mel_inv(y) if self.use_mel else self.loglin_inv(y)
+        """loglin / logmel to linlin spectrogram"""
+        if self.use_mel:
+            return self.mel_inv(y)
+        if self.use_complex:
+            return y
+        return self.loglin_inv(y)
+
+    def inv_signal(self, y):
+        """loglin / logmel to signal"""
+        return self.stft_fn.inverse(self.inv_spectrogram(y), complex=self.use_complex)
+
+    def reproject(self, y):
+        """project to a consistent logmel/loglin stft by inverse and forward xforms"""
+        return self.spectrogram(self.inv_signal(y).squeeze(1))
