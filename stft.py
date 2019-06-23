@@ -117,7 +117,7 @@ class STFT(torch.nn.Module):
 
         inverse_transform = F.conv_transpose1d(
             complex_spect,
-            Variable(self.inverse_basis, requires_grad=False),
+            self.inverse_basis,
             stride=self.hop_length,
             padding=0)
 

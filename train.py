@@ -219,9 +219,13 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
     train_loader, valset, collate_fn = prepare_dataloaders(hparams)
 
-    criterion = Tacotron2Loss(
-        use_mel=hparams.use_mel,
-        cycle_xform=valset.stft if hparams.use_complex else None)
+    cycle_xform = None
+    if hparams.use_complex:
+        cycle_xform = STFT(
+            hparams.filter_length, hparams.hop_length, hparams.win_length)
+    if hparams.gpu:
+        cycle_xform.cuda()
+    criterion = Tacotron2Loss(use_mel=hparams.use_mel, cycle_xform=cycle_xform)
 
     # Load checkpoint if one exists
     iteration = 0
