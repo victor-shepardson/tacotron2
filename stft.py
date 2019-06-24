@@ -90,7 +90,7 @@ class STFT(torch.nn.Module):
 
         forward_transform = F.conv1d(
             input_data,
-            Variable(self.forward_basis, requires_grad=False),
+            self.forward_basis,
             stride=self.hop_length,
             padding=0)
 
@@ -102,8 +102,8 @@ class STFT(torch.nn.Module):
         imag_part = forward_transform[:, cutoff:, :]
 
         magnitude = torch.sqrt(real_part**2 + imag_part**2)
-        phase = torch.autograd.Variable(
-            torch.atan2(imag_part.data, real_part.data))
+        # phase = torch.atan2(imag_part.data, real_part.data))
+        phase = torch.atan2(imag_part, real_part)
 
         return magnitude, phase
 

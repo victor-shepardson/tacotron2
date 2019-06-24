@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from utils import get_mask_from_lengths
 
 class Tacotron2Loss(nn.Module):
     def __init__(self, use_mel=True, cycle_xform=None):
@@ -8,14 +9,33 @@ class Tacotron2Loss(nn.Module):
         self.use_mel = use_mel
         self.cycle_xform = cycle_xform
 
-    def forward(self, model_output, targets, return_parts=False, use_mel=True):
+    def forward(self, model_output, targets, x=None, return_parts=False):
         mel_target, gate_target = targets[0], targets[1]
         mel_target.requires_grad = False
         gate_target.requires_grad = False
         gate_target = gate_target.view(-1, 1)
 
-        mel_out, mel_out_postnet, gate_out, _ = model_output
+        mel_out, mel_out_postnet, gate_out, alignments = model_output
         gate_out = gate_out.view(-1, 1)
+
+        device = mel_out.device
+
+        attn_loss = 0
+        if x is not None:
+            in_lens, out_lens = x[1], x[4]
+            # batch x out x in
+            i = torch.arange(
+                alignments.shape[1], dtype=torch.float32,
+                device=device)[None, :, None]
+            j = torch.arange(
+                alignments.shape[2], dtype=torch.float32,
+                device=device)[None, None, :]
+            m = get_mask_from_lengths(out_lens, device).float()[:, :, None]
+            s = (in_lens.float() / out_lens.float())[:, None, None]
+            sigma, margin = 30, 10
+            w = 1-torch.exp(-(((j-i*s).abs()-margin).clamp(0)/sigma)**2)
+            attn_loss = (w*alignments*m).sum(2).mean()
+            print(attn_loss.item())
 
         if not self.use_mel:
             # quick n dirty weights for linear spectrogram
@@ -52,4 +72,4 @@ class Tacotron2Loss(nn.Module):
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
         if return_parts:
             return mel_loss + gate_loss, mel_loss.item(), gate_loss.item()
-        return mel_loss + gate_loss
+        return mel_loss + gate_loss + attn_loss

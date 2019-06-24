@@ -78,11 +78,11 @@ class TacotronSTFT(torch.nn.Module):
         -------
         mel_output: torch.FloatTensor of shape (B, n_spect_channels, T)
         """
-        assert(torch.min(y.data) >= -1)
-        assert(torch.max(y.data) <= 1)
+        # assert(torch.min(y.data) >= -1)
+        # assert(torch.max(y.data) <= 1)
 
         magnitudes, phases = self.stft_fn.transform(y)
-        magnitudes = magnitudes.data
+        # magnitudes = magnitudes.data
         mel_output = torch.matmul(self.mel_basis, magnitudes)
         mel_output = self.spectral_normalize(mel_output)
         return mel_output
@@ -123,7 +123,11 @@ class TacotronSTFT(torch.nn.Module):
 
     def inv_signal(self, y):
         """loglin / logmel to signal"""
-        return self.stft_fn.inverse(self.inv_spectrogram(y), complex=self.use_complex)
+        spect = self.inv_spectrogram(y)
+        if self.use_complex:
+            return self.stft_fn.inverse(spect, complex=self.use_complex)
+        return self.stft_fn.inverse(spect, torch.rand(*spect.shape)*2*np.pi)
+        # return self.stft_fn.inverse(spect, torch.zeros(*spect.shape))
 
     def reproject(self, y):
         """project to a consistent logmel/loglin stft by inverse and forward xforms"""
