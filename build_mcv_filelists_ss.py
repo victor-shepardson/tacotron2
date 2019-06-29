@@ -26,7 +26,7 @@ def main(
         whitelist_file=None,#'filelists/mcv_whitelist.pkl'#None
         val_size=100,
         min_speaker_samples=1,
-        max_speakers_per_lang=16,
+        max_speakers_per_lang=None,
         hparams=''
     ):
     langs = [
@@ -70,7 +70,8 @@ def main(
         speakers = np.unique([
             id for _, g in data.groupby('lang')
             for i, (id, count) in enumerate(g.client_id.value_counts().iteritems())
-            if count >= min_speaker_samples and i < max_speakers_per_lang
+            if count >= min_speaker_samples and (
+                max_speakers_per_lang is None or i < max_speakers_per_lang)
         ])
 
     speaker_map = defaultdict(lambda: -1)
