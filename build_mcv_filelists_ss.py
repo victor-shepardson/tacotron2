@@ -97,6 +97,7 @@ def main(
     train_data, val_data = data[~is_val], data[is_val]
 
     def char_vc(s, lang, clean=multi_cleaners, ngram=1):
+        print(s)
         s = ''.join(s)
         if clean is not None:
             s = clean(s, {'lang': lang})
@@ -106,19 +107,19 @@ def main(
         return pd.Series(grams).value_counts()
 
     # compute character frequencies after cleaning
-    char_freqs = defaultdict(int)
-    char_freqs_by_lang = {}
-    digraph_freqs_by_lang = {}
-    for lang, g in data.groupby('lang'):
-        char_freqs_by_lang[lang] = defaultdict(int)
-        digraph_freqs_by_lang[lang] = defaultdict(int)
-        vc = char_vc(g.sentence, lang)
-        for c,i in vc.iteritems():
-            char_freqs_by_lang[lang][c] += i
-            char_freqs[c] += i
-        vc2 = char_vc(g.sentence, lang, ngram=2)
-        for d,i in vc2.iteritems():
-            digraph_freqs_by_lang[lang][d] += i
+    # char_freqs = defaultdict(int)
+    # char_freqs_by_lang = {}
+    # digraph_freqs_by_lang = {}
+    # for lang, g in data.groupby('lang'):
+    #     char_freqs_by_lang[lang] = defaultdict(int)
+    #     digraph_freqs_by_lang[lang] = defaultdict(int)
+    #     vc = char_vc(g.sentence, lang)
+    #     for c,i in vc.iteritems():
+    #         char_freqs_by_lang[lang][c] += i
+    #         char_freqs[c] += i
+    #     vc2 = char_vc(g.sentence, lang, ngram=2)
+    #     for d,i in vc2.iteritems():
+    #         digraph_freqs_by_lang[lang][d] += i
 
     def gen_spectra(data, include_raw=False):
         for fname, lang in zip(data.path, data.lang):
@@ -208,7 +209,7 @@ def main(
         pickle.dump({
             'language': {l:i for i,l in enumerate(langs)},
             'speaker': {s:i for s,i in speaker_map.items() if i>=0},
-            'character': dict(char_freqs)
+            # 'character': dict(char_freqs)
         }, file)
 
 if __name__=='__main__':
