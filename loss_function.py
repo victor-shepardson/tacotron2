@@ -39,10 +39,11 @@ class Tacotron2VAELoss(nn.Module):
 
         ll_loss = -td.Normal(*mel_out).log_prob(mel_target)
 
+        n_samples = 4
         mu, sigma = latents
         Q = td.Normal(mu, sigma)
         P = td.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
-        latent_samples = Q.rsample()
+        latent_samples = Q.rsample((n_samples,))
         kl_loss = Q.log_prob(latent_samples) - P.log_prob(latent_samples)
         # kl_loss = td.kl_divergence(Q, P)
 
