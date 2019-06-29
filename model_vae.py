@@ -102,50 +102,50 @@ class Prenet(nn.Module):
         return x
 
 
-class Postnet(nn.Module):
-    """Postnet
-        - Five 1-d convolution with 512 channels and kernel size 5
-    """
-
-    def __init__(self, hparams):
-        super(Postnet, self).__init__()
-        self.convolutions = nn.ModuleList()
-
-        self.convolutions.append(
-            nn.Sequential(
-                ConvNorm(hparams.n_spect_channels, hparams.postnet_embedding_dim,
-                         kernel_size=hparams.postnet_kernel_size, stride=1,
-                         padding=int((hparams.postnet_kernel_size - 1) / 2),
-                         dilation=1, w_init_gain='tanh'),
-                nn.BatchNorm1d(hparams.postnet_embedding_dim))
-        )
-
-        for i in range(1, hparams.postnet_n_convolutions - 1):
-            self.convolutions.append(
-                nn.Sequential(
-                    ConvNorm(hparams.postnet_embedding_dim,
-                             hparams.postnet_embedding_dim,
-                             kernel_size=hparams.postnet_kernel_size, stride=1,
-                             padding=int((hparams.postnet_kernel_size - 1) / 2),
-                             dilation=1, w_init_gain='tanh'),
-                    nn.BatchNorm1d(hparams.postnet_embedding_dim))
-            )
-
-        self.convolutions.append(
-            nn.Sequential(
-                ConvNorm(hparams.postnet_embedding_dim, hparams.n_spect_channels,
-                         kernel_size=hparams.postnet_kernel_size, stride=1,
-                         padding=int((hparams.postnet_kernel_size - 1) / 2),
-                         dilation=1, w_init_gain='linear'),
-                nn.BatchNorm1d(hparams.n_spect_channels))
-            )
-
-    def forward(self, x):
-        for i in range(len(self.convolutions) - 1):
-            x = F.dropout(torch.tanh(self.convolutions[i](x)), 0.5, self.training)
-        x = F.dropout(self.convolutions[-1](x), 0.5, self.training)
-
-        return x
+# class Postnet(nn.Module):
+#     """Postnet
+#         - Five 1-d convolution with 512 channels and kernel size 5
+#     """
+#
+#     def __init__(self, hparams):
+#         super(Postnet, self).__init__()
+#         self.convolutions = nn.ModuleList()
+#
+#         self.convolutions.append(
+#             nn.Sequential(
+#                 ConvNorm(hparams.n_spect_channels, hparams.postnet_embedding_dim,
+#                          kernel_size=hparams.postnet_kernel_size, stride=1,
+#                          padding=int((hparams.postnet_kernel_size - 1) / 2),
+#                          dilation=1, w_init_gain='tanh'),
+#                 nn.BatchNorm1d(hparams.postnet_embedding_dim))
+#         )
+#
+#         for i in range(1, hparams.postnet_n_convolutions - 1):
+#             self.convolutions.append(
+#                 nn.Sequential(
+#                     ConvNorm(hparams.postnet_embedding_dim,
+#                              hparams.postnet_embedding_dim,
+#                              kernel_size=hparams.postnet_kernel_size, stride=1,
+#                              padding=int((hparams.postnet_kernel_size - 1) / 2),
+#                              dilation=1, w_init_gain='tanh'),
+#                     nn.BatchNorm1d(hparams.postnet_embedding_dim))
+#             )
+#
+#         self.convolutions.append(
+#             nn.Sequential(
+#                 ConvNorm(hparams.postnet_embedding_dim, hparams.n_spect_channels,
+#                          kernel_size=hparams.postnet_kernel_size, stride=1,
+#                          padding=int((hparams.postnet_kernel_size - 1) / 2),
+#                          dilation=1, w_init_gain='linear'),
+#                 nn.BatchNorm1d(hparams.n_spect_channels))
+#             )
+#
+#     def forward(self, x):
+#         for i in range(len(self.convolutions) - 1):
+#             x = F.dropout(torch.tanh(self.convolutions[i](x)), 0.5, self.training)
+#         x = F.dropout(self.convolutions[-1](x), 0.5, self.training)
+#
+#         return x
 
 
 class Encoder(nn.Module):
@@ -489,7 +489,9 @@ class LatentEncoder(nn.Module):
         x = self.projection(x.mean(1))
         mu, sigma = x.chunk(2, dim=1)
         # sigma = sigma.exp() + np.exp(-3)
-        sigma = F.softplus(sigma) + np.exp(-3)
+        sigma = F.softplus(sigma) #+ np.exp(-3)
+        # sigma = torch.sigmoid(sigma) + np.exp(-3)
+
         print(mu.norm(), sigma.norm())
         return mu, sigma
 
@@ -508,7 +510,7 @@ class Tacotron2(nn.Module):
         self.latent_encoder = LatentEncoder(hparams)
         self.encoder = Encoder(hparams)
         self.decoder = Decoder(hparams)
-        self.postnet = Postnet(hparams)
+        # self.postnet = Postnet(hparams)
 
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
@@ -563,7 +565,9 @@ class Tacotron2(nn.Module):
 
         mel_outputs = mel_outputs.chunk(2, dim=2)
         # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
-        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])+np.exp(-3)
+        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])#+np.exp(-3)
+        # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
+
 
 
         return self.parse_output(
@@ -571,24 +575,25 @@ class Tacotron2(nn.Module):
             output_lengths)
 
     def inference(self, inputs, use_gate=True):
+        raise NotImplementedError
         encoder_outputs = self.encode(inputs)
         return self.decode(encoder_outputs, use_gate=use_gate)
 
     def encode(self, inputs):
+        raise NotImplementedError
         inputs = self.parse_input(inputs)
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         return self.encoder.inference(embedded_inputs)
 
     def decode(self, encoder_outputs, use_gate=True):
+        raise NotImplementedError
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
             encoder_outputs, use_gate=use_gate)
-
-        mel_outputs_postnet = self.apply_postnet(mel_outputs)
 
         outputs = self.parse_output(
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments])
 
         return outputs
 
-    def apply_postnet(self, spect):
-        return spect + self.postnet(spect)
+    # def apply_postnet(self, spect):
+    #     return spect + self.postnet(spect)
