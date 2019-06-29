@@ -331,12 +331,13 @@ class Decoder(nn.Module):
         gate_outputs = torch.stack(gate_outputs).transpose(0, 1)
         gate_outputs = gate_outputs.contiguous()
         # (T_out, B, n_spect_channels) -> (B, T_out, n_spect_channels)
-        mel_outputs = torch.stack(mel_outputs).transpose(0, 1).contiguous()
+        # mel_outputs = torch.stack(mel_outputs).transpose(0, 1).contiguous()
         # decouple frames per step
-        mel_outputs = mel_outputs.view(
-            mel_outputs.size(0), -1, self.n_spect_channels)
+        # mel_outputs = mel_outputs.view(
+            # mel_outputs.size(0), -1, self.n_spect_channels*2)
         # (B, T_out, n_spect_channels) -> (B, n_spect_channels, T_out)
-        mel_outputs = mel_outputs.transpose(1, 2)
+        # mel_outputs = mel_outputs.transpose(1, 2)
+        mel_outputs = torch.stack(mel_outputs).permute(1, 2, 0)
 
         return mel_outputs, gate_outputs, alignments
 
@@ -487,12 +488,11 @@ class LatentEncoder(nn.Module):
         x = self.conv(spect).permute(0,2,1)
         x, _ = self.recurrence(x)
         x = self.projection(x.mean(1))
+        # print(x.shape)
         mu, sigma = x.chunk(2, dim=1)
         # sigma = sigma.exp() + np.exp(-3)
-        sigma = F.softplus(sigma) #+ np.exp(-3)
+        sigma = F.softplus(sigma)# + np.exp(-3)
         # sigma = torch.sigmoid(sigma) + np.exp(-3)
-
-        print(mu.norm(), sigma.norm())
         return mu, sigma
 
 class Tacotron2(nn.Module):
@@ -549,7 +549,6 @@ class Tacotron2(nn.Module):
         inputs, input_lengths, targets, max_len, \
             output_lengths = self.parse_input(inputs)
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
-
         mu, sigma = self.latent_encoder(targets)
         sampled_latents = torch.randn_like(mu, requires_grad=True)*sigma + mu
         latents = mu, sigma, sampled_latents
@@ -563,12 +562,10 @@ class Tacotron2(nn.Module):
         # mel_outputs_postnet = self.postnet(mel_outputs)
         # mel_outputs_postnet = mel_outputs + mel_outputs_postnet
 
-        mel_outputs = mel_outputs.chunk(2, dim=2)
+        mel_outputs = mel_outputs.chunk(2, dim=1)
         # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
         mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])#+np.exp(-3)
         # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
-
-
 
         return self.parse_output(
             [mel_outputs, latents, gate_outputs, alignments],
