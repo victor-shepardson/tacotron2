@@ -1,7 +1,60 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+import torch.distributions as td
 from utils import get_mask_from_lengths
+
+class Tacotron2VAELoss(nn.Module):
+    def __init__(self, use_mel=True, cycle_xform=None):
+        super().__init__()
+
+    def forward(self, model_output, targets, x=None):
+        mel_target, gate_target = targets[0], targets[1]
+        mel_target.requires_grad = False
+        gate_target.requires_grad = False
+        gate_target = gate_target.view(-1, 1)
+
+        mel_out, latents, gate_out, alignments = model_output
+        gate_out = gate_out.view(-1, 1)
+
+        device = alignments.device
+
+        attn_loss = 0
+        if x is not None:
+            in_lens, out_lens = x[1], x[4]
+            # batch x out x in
+            i = torch.arange(
+                alignments.shape[1], dtype=torch.float32,
+                device=device)[None, :, None]
+            j = torch.arange(
+                alignments.shape[2], dtype=torch.float32,
+                device=device)[None, None, :]
+            m = get_mask_from_lengths(out_lens, device).float()[:, :, None]
+            s = (in_lens.float() / out_lens.float())[:, None, None]
+            sigma, margin = 30, 10
+            w = 1-torch.exp(-(((j-i*s).abs()-margin).clamp(0)/sigma)**2)
+            attn_loss = (w*alignments*m).sum(2).mean()
+
+        gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
+
+        ll_loss = -td.Normal(*mel_out).log_prob(mel_target)
+
+        mu, sigma = latents
+        Q = td.Normal(mu, sigma)
+        P = td.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
+        latent_samples = Q.rsample()
+        kl_loss = Q.log_prob(latent_samples) - P.log_prob(latent_samples)
+        # kl_loss = td.kl_divergence(Q, P)
+
+        r = dict(
+            gate_loss = gate_loss,
+            attn_loss = attn_loss,
+            ll_loss = ll_loss.mean(),
+            kl_loss = kl_loss.mean(),
+        )
+        print({k:float(v) for k,v in r.items()})
+        return r
+
 
 class Tacotron2Loss(nn.Module):
     def __init__(self, use_mel=True, cycle_xform=None):

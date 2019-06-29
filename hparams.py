@@ -98,6 +98,13 @@ def create_hparams(hparams_string=None, verbose=False):
         postnet_kernel_size=5,
         postnet_n_convolutions=5,
 
+        # VAE parameters
+        latent_dim=16,
+        latent_encoder_filters=256,
+        latent_encoder_kernel=5,
+        latent_encoder_stride=1,
+        latent_encoder_rnn=512,
+
         ################################
         # Optimization Hyperparameters #
         ################################
