@@ -124,8 +124,8 @@ def main(
     def gen_spectra(data, include_raw=False):
         for fname, lang in zip(data.path, data.lang):
             path = f'{data_root}/{lang}/clips/{fname}.mp3'
-            audio = load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0].to(device)
-            spect = spect_raw = stft.mel_spectrogram(audio.unsqueeze(0)).squeeze(0).cpu().numpy()
+            audio = load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0]
+            spect = spect_raw = stft.mel_spectrogram(audio.to(device).unsqueeze(0)).squeeze(0).cpu().numpy()
 
             if spect.shape[-1] < 30:
                 warnings.warn(f'unexpectedly short audio: {path}')
