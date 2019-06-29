@@ -19,6 +19,7 @@ Assumes waveglow is nested in tacotron2 directory and not the other way around."
 def main(
         process_audio=False,
         single_speaker=None,
+        single_lang=None,
         remove_noise=False,
         data_root='../data/mozilla_common_voice',
         prefix='mcv', # for output filenames
@@ -31,6 +32,10 @@ def main(
         if not d.startswith('.')
         and os.path.exists(os.path.join(data_root, d, 'clips'))]
     print(f'found {len(langs)} languages: {langs}')
+    if single_lang is not None:
+        assert single_lang in langs
+        print(f'using {single_lang} only')
+        langs = [single_lang]
     min_speaker_samples = 100
     max_speakers_per_lang = 16
 
@@ -164,11 +169,11 @@ def main(
             yield r
 
     # save spectra with np.save
+    if hparams.use_mel:
+        spect_dir = f'spect_{hparams.n_mel_channels}_{int(hparams.mel_fmin)}_{int(hparams.mel_fmax)}'
+    else:
+        spect_dir = f'spect_lin_{hparams.filter_length}'
     if process_audio:
-        if hparams.use_mel:
-            spect_dir = f'spect_{hparams.n_mel_channels}_{hparams.mel_fmin}_{hparams.mel_fmax}'
-        else:
-            spect_dir = f'spect_lin_{hparams.filter_length}'
         for lang in langs:
             for dir in (spect_dir, 'wav'):
                 path = os.path.join(data_root, lang, dir)
