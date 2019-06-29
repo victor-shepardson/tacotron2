@@ -471,10 +471,10 @@ class LatentEncoder(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv1d(hparams.n_spect_channels, *convparams),
             nn.ReLU(),
-            nn.BatchNorm1d(hparams.latent_encoder_filters),
+            nn.BatchNorm1d(hparams.latent_encoder_filters, affine=False),
             nn.Conv1d(hparams.latent_encoder_filters, *convparams),
             nn.ReLU(),
-            nn.BatchNorm1d(hparams.latent_encoder_filters),
+            nn.BatchNorm1d(hparams.latent_encoder_filters, affine=False),
         )
         self.recurrence = nn.LSTM(
             hparams.latent_encoder_filters, hparams.latent_encoder_rnn,
@@ -490,7 +490,7 @@ class LatentEncoder(nn.Module):
         mu, sigma = x.chunk(2, dim=1)
         # sigma = sigma.exp() + np.exp(-3)
         sigma = F.softplus(sigma) + np.exp(-3)
-
+        print(mu.norm(), sigma.norm())
         return mu, sigma
 
 class Tacotron2(nn.Module):
@@ -548,8 +548,9 @@ class Tacotron2(nn.Module):
             output_lengths = self.parse_input(inputs)
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
 
-        mu, sigma = latents = self.latent_encoder(targets)
+        mu, sigma = self.latent_encoder(targets)
         sampled_latents = torch.randn_like(mu, requires_grad=True)*sigma + mu
+        latents = mu, sigma, sampled_latents
 
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         encoder_outputs = self.encoder(embedded_inputs, input_lengths)
