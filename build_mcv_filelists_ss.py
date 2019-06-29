@@ -27,7 +27,8 @@ def main(
         val_size=100,
         min_speaker_samples=1,
         max_speakers_per_lang=None,
-        hparams=''
+        hparams='',
+        device='cpu'
     ):
     langs = [
         d for d in os.listdir(data_root)
@@ -44,7 +45,7 @@ def main(
     stft = layers.TacotronSTFT(
         hparams.filter_length, hparams.hop_length, hparams.win_length,
         hparams.n_mel_channels, hparams.sampling_rate, hparams.mel_fmin,
-        hparams.mel_fmax, hparams.use_mel)
+        hparams.mel_fmax, hparams.use_mel).to(device)
 
     def gen_tables(fname):
         for i,l in enumerate(langs):
@@ -97,7 +98,6 @@ def main(
     train_data, val_data = data[~is_val], data[is_val]
 
     def char_vc(s, lang, clean=multi_cleaners, ngram=1):
-        print(s)
         s = ''.join(s)
         if clean is not None:
             s = clean(s, {'lang': lang})
@@ -124,8 +124,8 @@ def main(
     def gen_spectra(data, include_raw=False):
         for fname, lang in zip(data.path, data.lang):
             path = f'{data_root}/{lang}/clips/{fname}.mp3'
-            audio = load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0]
-            spect = spect_raw = stft.mel_spectrogram(audio.unsqueeze(0)).squeeze(0).numpy()
+            audio = load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0].to(device)
+            spect = spect_raw = stft.mel_spectrogram(audio.unsqueeze(0)).squeeze(0).cpu().numpy()
 
             if spect.shape[-1] < 30:
                 warnings.warn(f'unexpectedly short audio: {path}')
