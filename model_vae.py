@@ -4,6 +4,7 @@ import torch
 from torch.autograd import Variable
 from torch import nn
 from torch.nn import functional as F
+import torch.distributions as D
 from layers import ConvNorm, LinearNorm
 from utils import to_gpu, get_mask_from_lengths
 from fp16_optimizer import fp32_to_fp16, fp16_to_fp32
@@ -330,16 +331,26 @@ class Decoder(nn.Module):
         # (T_out, B) -> (B, T_out)
         gate_outputs = torch.stack(gate_outputs).transpose(0, 1)
         gate_outputs = gate_outputs.contiguous()
-        # (T_out, B, n_spect_channels) -> (B, T_out, n_spect_channels)
-        # mel_outputs = torch.stack(mel_outputs).transpose(0, 1).contiguous()
-        # decouple frames per step
-        # mel_outputs = mel_outputs.view(
-            # mel_outputs.size(0), -1, self.n_spect_channels*2)
-        # (B, T_out, n_spect_channels) -> (B, n_spect_channels, T_out)
-        # mel_outputs = mel_outputs.transpose(1, 2)
-        mel_outputs = torch.stack(mel_outputs).permute(1, 2, 0)
+        if isinstance(mel_outputs[0], tuple):
+            # list[tuple[tensor]] (T_out, 2, B, n_spect_channels)
+            # -> tensor (B, n_spect_channels, T_out)
+            mel_outputs = tuple(
+                torch.stack(p).permute(1, 2, 0) for p in zip(*mel_outputs))
+        else:
+            # list[tensor] (T_out, B, n_spect_channels)
+            # -> tensor (B, n_spect_channels, T_out)
+            mel_outputs = torch.stack(mel_outputs).permute(1, 2, 0)
+
 
         return mel_outputs, gate_outputs, alignments
+
+    def mel_params(self, mel_outputs):
+        """single frame of outputs -> mu, sigma"""
+        mel_outputs = mel_outputs.chunk(2, dim=1)
+        # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
+        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])#+np.exp(-3)
+        # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
+        return mel_outputs
 
     def decode(self, decoder_input):
         """ Decoder step using stored states, attention and memory
@@ -353,7 +364,8 @@ class Decoder(nn.Module):
         gate_output: gate output energies
         attention_weights:
         """
-        cell_input = torch.cat((decoder_input, self.attention_context, self.latents), -1)
+        cell_input = torch.cat((
+            decoder_input, self.attention_context, self.latents), -1)
         self.attention_hidden, self.attention_cell = self.attention_rnn(
             cell_input, (self.attention_hidden, self.attention_cell))
         self.attention_hidden = F.dropout(
@@ -383,7 +395,9 @@ class Decoder(nn.Module):
         decoder_output = self.linear_projection(
             decoder_hidden_attention_context)
 
-        gate_prediction = self.gate_layer(decoder_hidden_attention_context)
+        decoder_output = self.mel_params(decoder_output.squeeze(1))
+
+        gate_prediction = self.gate_layer(decoder_hidden_attention_context).squeeze(1)
         return decoder_output, gate_prediction, self.attention_weights
 
     def forward(self, memory, decoder_inputs, latents, memory_lengths):
@@ -392,6 +406,7 @@ class Decoder(nn.Module):
         ------
         memory: Encoder outputs
         decoder_inputs: Decoder inputs for teacher forcing. i.e. mel-specs
+        latents: latent variables to be fed to recurrent controller
         memory_lengths: Encoder output lengths for attention masking.
 
         RETURNS
@@ -414,8 +429,8 @@ class Decoder(nn.Module):
             decoder_input = decoder_inputs[len(mel_outputs)]
             mel_output, gate_output, attention_weights = self.decode(
                 decoder_input)
-            mel_outputs += [mel_output.squeeze(1)]
-            gate_outputs += [gate_output.squeeze()]
+            mel_outputs += [mel_output]
+            gate_outputs += [gate_output]
             alignments += [attention_weights]
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
@@ -423,11 +438,12 @@ class Decoder(nn.Module):
 
         return mel_outputs, gate_outputs, alignments
 
-    def inference(self, memory, use_gate=True):
+    def inference(self, memory, latents, use_gate=True, temperature=1):
         """ Decoder inference
         PARAMS
         ------
         memory: Encoder outputs
+        latents: latent variables
 
         RETURNS
         -------
@@ -437,14 +453,16 @@ class Decoder(nn.Module):
         """
         decoder_input = self.get_go_frame(memory)
 
-        self.initialize_decoder_states(memory, mask=None)
+        self.initialize_decoder_states(memory, latents, mask=None)
 
         mel_outputs, gate_outputs, alignments = [], [], []
         while True:
             decoder_input = self.prenet(decoder_input)
-            mel_output, gate_output, alignment = self.decode(decoder_input)
+            (mu, sigma), gate_output, alignment = self.decode(decoder_input)
 
-            mel_outputs += [mel_output.squeeze(1)]
+            mel_output = D.Normal(mu, sigma*temperature).sample()
+
+            mel_outputs += [mel_output]
             gate_outputs += [gate_output]
             alignments += [alignment]
 
@@ -567,36 +585,42 @@ class Tacotron2(nn.Module):
         mel_outputs, gate_outputs, alignments = self.decoder(
             encoder_outputs, targets, sampled_latents, memory_lengths=input_lengths)
 
-        # mel_outputs_postnet = self.postnet(mel_outputs)
-        # mel_outputs_postnet = mel_outputs + mel_outputs_postnet
-
-        mel_outputs = mel_outputs.chunk(2, dim=1)
-        # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
-        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])#+np.exp(-3)
-        # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
-
         return self.parse_output(
             [mel_outputs, latents, gate_outputs, alignments],
             output_lengths)
 
-    def inference(self, inputs, use_gate=True):
-        raise NotImplementedError
+    def inference(self, inputs, reference=None, latents=None,
+            use_gate=True, reference_lengths=None, temperature=1):
+        assert (reference is None) != (latents is None)
+
         encoder_outputs = self.encode(inputs)
-        return self.decode(encoder_outputs, use_gate=use_gate)
+
+        if latents is None:
+            latents = self.encode_reference(reference, reference_lengths)
+            latents = D.Normal(*latents).sample()
+
+        return self.decode(encoder_outputs, latents,
+            use_gate=use_gate, temperature=temperature)
+
+    def encode_reference(self, reference, reference_lengths=None):
+        if reference_lengths is None:
+            reference_lengths = reference.ne(0).all(2).sum(1)
+        mu, sigma = self.latent_encoder(reference, reference_lengths)
+        return mu, sigma
 
     def encode(self, inputs):
-        raise NotImplementedError
         inputs = self.parse_input(inputs)
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         return self.encoder.inference(embedded_inputs)
 
-    def decode(self, encoder_outputs, use_gate=True):
-        raise NotImplementedError
+    def decode(self, encoder_outputs, latents,
+            use_gate=True, temperature=1):
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
-            encoder_outputs, use_gate=use_gate)
+            encoder_outputs, latents,
+            use_gate=use_gate, temperature=temperature)
 
         outputs = self.parse_output(
-            [mel_outputs, mel_outputs_postnet, gate_outputs, alignments])
+            [mel_outputs, latents, gate_outputs, alignments])
 
         return outputs
 

@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-import torch.distributions as td
+import torch.distributions as D
 from utils import get_mask_from_lengths
 
 class Tacotron2VAELoss(nn.Module):
@@ -37,13 +37,13 @@ class Tacotron2VAELoss(nn.Module):
 
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
 
-        ll_loss = -td.Normal(*mel_out).log_prob(mel_target)
+        ll_loss = -D.Normal(*mel_out).log_prob(mel_target)
 
         mu, sigma, latent_samples = latents
-        Q = td.Normal(mu, sigma)
-        P = td.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
+        Q = D.Normal(mu, sigma)
+        P = D.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
         kl_loss = Q.log_prob(latent_samples) - P.log_prob(latent_samples)
-        # kl_loss = td.kl_divergence(Q, P)
+        # kl_loss = D.kl_divergence(Q, P)
 
         r = dict(
             gate_loss = gate_loss,
