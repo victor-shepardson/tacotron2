@@ -488,7 +488,7 @@ class LatentEncoder(nn.Module):
         x, _ = self.recurrence(x)
         x = self.projection(x.mean(1))
         mu, sigma = x.chunk(2, dim=1)
-        sigma = sigma.exp() + np.exp(-2)
+        sigma = sigma.exp() + np.exp(-3)
         return mu, sigma
 
 class Tacotron2(nn.Module):
@@ -559,7 +559,7 @@ class Tacotron2(nn.Module):
         # mel_outputs_postnet = mel_outputs + mel_outputs_postnet
 
         mel_outputs = mel_outputs.chunk(2, dim=2)
-        mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-2)
+        mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
 
         return self.parse_output(
             [mel_outputs, latents, gate_outputs, alignments],
