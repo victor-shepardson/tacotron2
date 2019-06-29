@@ -25,6 +25,8 @@ def main(
         prefix='mcv', # for output filenames
         whitelist_file=None,#'filelists/mcv_whitelist.pkl'#None
         val_size=100,
+        min_speaker_samples=1,
+        max_speakers_per_lang=16,
         hparams=''
     ):
     langs = [
@@ -36,8 +38,6 @@ def main(
         assert single_lang in langs
         print(f'using {single_lang} only')
         langs = [single_lang]
-    min_speaker_samples = 100
-    max_speakers_per_lang = 16
 
     # create default hparams just for audio params
     hparams = create_hparams(hparams)
