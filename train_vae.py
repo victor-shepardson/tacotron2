@@ -289,15 +289,17 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 logger.add_scalars('training.loss', {
                     k:v.item() for k,v in loss.items()}, iteration)
 
-            # if not overflow and (iteration % hparams.iters_per_checkpoint == 0):
-            #     validate(model, criterion, valset, iteration,
-            #              hparams.batch_size, n_gpus, collate_fn, logger,
-            #              hparams.distributed_run, rank)
-            #     if rank == 0:
-            #         checkpoint_path = os.path.join(
-            #             output_directory, "checkpoint_{}".format(iteration))
-            #         save_checkpoint(model, optimizer, learning_rate, iteration,
-            #                         checkpoint_path)
+            if not overflow and (iteration % hparams.iters_per_checkpoint == 0):
+                validate(model, criterion, valset, iteration,
+                         hparams.batch_size, n_gpus, collate_fn, logger,
+                         hparams.distributed_run, rank)
+                if rank == 0:
+                    checkpoint_path = os.path.join(
+                        output_directory, "checkpoint_{}".format(iteration))
+                    save_checkpoint(model, optimizer, learning_rate, iteration,
+                                    checkpoint_path)
+
+            del loss
 
             iteration += 1
 
