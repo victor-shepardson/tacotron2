@@ -484,10 +484,16 @@ class LatentEncoder(nn.Module):
             hparams.latent_encoder_rnn*2,
             hparams.latent_dim*2)
 
-    def forward(self, spect):
+    def forward(self, spect, lengths):
         x = self.conv(spect).permute(0,2,1)
+
+        x = nn.utils.rnn.pack_padded_sequence(
+            x, lengths, batch_first=True, enforce_sorted=False)
         x, _ = self.recurrence(x)
-        x = self.projection(x.mean(1))
+        x, _ = nn.utils.rnn.pad_packed_sequence(
+            x, batch_first=True)
+
+        x = self.projection(x.sum(1))/lengths.float()[:,None]
         # print(x.shape)
         mu, sigma = x.chunk(2, dim=1)
         # sigma = sigma.exp() + np.exp(-3)
@@ -548,8 +554,10 @@ class Tacotron2(nn.Module):
     def forward(self, inputs):
         inputs, input_lengths, targets, max_len, \
             output_lengths = self.parse_input(inputs)
+
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
-        mu, sigma = self.latent_encoder(targets)
+
+        mu, sigma = self.latent_encoder(targets, output_lengths)
         sampled_latents = torch.randn_like(mu, requires_grad=True)*sigma + mu
         latents = mu, sigma, sampled_latents
 

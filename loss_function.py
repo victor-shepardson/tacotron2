@@ -37,7 +37,6 @@ class Tacotron2VAELoss(nn.Module):
 
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
 
-        print(mel_out[0].shape, mel_target.shape)
         ll_loss = -td.Normal(*mel_out).log_prob(mel_target)
 
         mu, sigma, latent_samples = latents
@@ -52,7 +51,7 @@ class Tacotron2VAELoss(nn.Module):
             ll_loss = ll_loss.mean(),
             kl_loss = kl_loss.mean(),
         )
-        print({k:float(v) for k,v in r.items()})
+        # print({k:float(v) for k,v in r.items()})
         return r
 
 
