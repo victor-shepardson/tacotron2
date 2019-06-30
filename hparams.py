@@ -104,6 +104,8 @@ def create_hparams(hparams_string=None, verbose=False):
         latent_encoder_kernel=3,
         latent_encoder_stride=1,
         latent_encoder_rnn=512,
+        learn_sigma_x=False,
+        min_sigma_x=1,
 
         ################################
         # Optimization Hyperparameters #

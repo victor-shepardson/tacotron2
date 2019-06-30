@@ -217,6 +217,8 @@ class Decoder(nn.Module):
         self.gate_threshold = hparams.gate_threshold
         self.p_attention_dropout = hparams.p_attention_dropout
         self.p_decoder_dropout = hparams.p_decoder_dropout
+        self.learn_sigma_x = hparams.learn_sigma_x
+        self.min_sigma_x = hparams.min_sigma_x
 
         self.prenet = Prenet(
             hparams.n_spect_channels * hparams.n_frames_per_step,
@@ -237,7 +239,9 @@ class Decoder(nn.Module):
 
         self.linear_projection = LinearNorm(
             hparams.decoder_rnn_dim + hparams.encoder_embedding_dim,
-            hparams.n_spect_channels * hparams.n_frames_per_step * 2)
+            hparams.n_spect_channels * hparams.n_frames_per_step * (
+                int(hparams.learn_sigma_x) + 1
+            ))
 
         self.gate_layer = LinearNorm(
             hparams.decoder_rnn_dim + hparams.encoder_embedding_dim, 1,
@@ -346,10 +350,14 @@ class Decoder(nn.Module):
 
     def mel_params(self, mel_outputs):
         """single frame of outputs -> mu, sigma"""
-        mel_outputs = mel_outputs.chunk(2, dim=1)
-        # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
-        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])+np.exp(-3)
-        # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
+        if self.learn_sigma_x:
+            mel_outputs = mel_outputs.chunk(2, dim=1)
+            # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
+            mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])+self.min_sigma_x
+            # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
+        else:
+            mel_outputs = mel_outputs, torch.ones_like(mel_outputs)*self.min_sigma_x
+
         return mel_outputs
 
     def decode(self, decoder_input):
