@@ -4,15 +4,7 @@
 # GPU train:
 # python train_vae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=50,iters_per_checkpoint=300" -c tacotron2_statedict.pt --warm_start
 
-# -c tacotron2_statedict.pt --warm_start
-
-# hi res LJ
-# python train.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,n_mel_channels=240,mel_fmax=11000" --warm_start -c tacotron2_statedict.pt
-
-# python train.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,n_mel_channels=240,mel_fmax=11000" --warm_start -c tacotron2_statedict.pt
-
-# complex LJ
-# python train.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=2,iters_per_checkpoint=5,use_mel=False,use_complex=True" --warm_start -c tacotron2_statedict.pt
+# python train_vae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_en_train_filelist.txt',validation_files='filelists/mcv_en_val_filelist.txt',batch_size=64,iters_per_checkpoint=100,load_spect_from_disk=True" -c tacotron2_statedict.pt --warm_start
 
 import os
 import copy
@@ -189,7 +181,7 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
-          rank, group_name, hparams):
+          rank, group_name, hparams, debug):
     """Training and validation logging results to tensorboard and stdout
 
     Params
@@ -265,11 +257,12 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             else:
                 reduced_loss.backward()
 
-                for k,v in model.named_parameters():
-                    if v.grad is None:
-                        print(k, 'has no gradient')
-                    else:
-                        print(k, v.grad.norm())
+                if debug:
+                    for k,v in model.named_parameters():
+                        if v.grad is None:
+                            print(k, 'has no gradient')
+                        else:
+                            print(k, v.grad.norm())
 
                 grad_norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(), hparams.grad_clip_thresh)
@@ -322,6 +315,8 @@ if __name__ == '__main__':
                         required=False, help='Distributed group name')
     parser.add_argument('--hparams', type=str,
                         required=False, help='comma separated name=value pairs')
+    parser.add_argument('--debug', action='store_true',
+                        help='print grad statistics')
 
     args = parser.parse_args()
     hparams = create_hparams(args.hparams)
@@ -337,4 +332,4 @@ if __name__ == '__main__':
     print("cuDNN Benchmark:", hparams.cudnn_benchmark)
 
     train(args.output_directory, args.log_directory, args.checkpoint_path,
-          args.warm_start, args.n_gpus, args.rank, args.group_name, hparams)
+          args.warm_start, args.n_gpus, args.rank, args.group_name, hparams, args.debug)
