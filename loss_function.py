@@ -37,13 +37,16 @@ class Tacotron2VAELoss(nn.Module):
 
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
 
-        ll_loss = -D.Normal(*mel_out).log_prob(mel_target)
+        # ll_loss = -D.Normal(*mel_out).log_prob(mel_target)
+        ll_loss = -D.Independent(D.Normal(*mel_out), 1).log_prob(mel_target)
 
         mu, sigma, latent_samples = latents
-        Q = D.Normal(mu, sigma)
-        P = D.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
-        kl_loss = Q.log_prob(latent_samples) - P.log_prob(latent_samples)
-        # kl_loss = D.kl_divergence(Q, P)
+        # Q = D.Normal(mu, sigma)
+        # P = D.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
+        # kl_loss = Q.log_prob(latent_samples) - P.log_prob(latent_samples)
+        Q = D.Independent(D.Normal(mu, sigma), 1)
+        P = D.Independent(D.Normal(torch.zeros_like(mu), torch.ones_like(sigma)), 1)
+        kl_loss = D.kl_divergence(Q, P)
 
         r = dict(
             gate_loss = gate_loss,
