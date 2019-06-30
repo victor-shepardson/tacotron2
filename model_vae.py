@@ -348,7 +348,7 @@ class Decoder(nn.Module):
         """single frame of outputs -> mu, sigma"""
         mel_outputs = mel_outputs.chunk(2, dim=1)
         # mel_outputs = mel_outputs[0], mel_outputs[1].exp()+np.exp(-3)
-        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])#+np.exp(-3)
+        mel_outputs = mel_outputs[0], F.softplus(mel_outputs[1])+np.exp(-3)
         # mel_outputs = mel_outputs[0], torch.sigmoid(mel_outputs[1])+np.exp(-3)
         return mel_outputs
 
