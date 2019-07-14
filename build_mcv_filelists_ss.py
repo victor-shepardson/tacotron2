@@ -189,7 +189,7 @@ def main(
         #     for item in tqdm(pool.imap_unordered(
         #             process_example, zip(data.path, data.lang), 1)):
         #         yield item
-        for args in zip(data.path, data.lang):
+        for args in zip(tqdm(data.path), data.lang):
             yield process_example(args, include_raw)
 
     # save spectra with np.save
