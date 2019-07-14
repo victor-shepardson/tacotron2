@@ -30,7 +30,8 @@ def main(
         min_speaker_samples=1,
         max_speakers_per_lang=None,
         hparams='',
-        device='cpu'
+        device='cpu',
+        threads=4
     ):
     langs = [
         d for d in os.listdir(data_root)
@@ -184,7 +185,7 @@ def main(
         return fname, lang, r
 
     def gen_spectra(data):
-        with ThreadPool(4) as pool:
+        with ThreadPool(threads) as pool:
             for item in tqdm(pool.imap_unordered(
                     process_example, zip(data.path, data.lang), 8)):
                 yield item
