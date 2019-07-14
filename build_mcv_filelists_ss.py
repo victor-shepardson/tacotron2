@@ -31,7 +31,7 @@ def main(
         max_speakers_per_lang=None,
         hparams='',
         device='cpu',
-        threads=4
+        # threads=1 # soundfile seems not-threadsafe
     ):
     langs = [
         d for d in os.listdir(data_root)
@@ -185,15 +185,14 @@ def main(
         return fname, lang, r
 
     def gen_spectra(data):
-        with ThreadPool(threads) as pool:
-            for item in tqdm(pool.imap_unordered(
-                    process_example, zip(data.path, data.lang), 1)):
-                yield item
-        # for fname, lang in zip(data.path, data.lang):
-            # path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
-            # r = process_audio(path, include_raw)
-            # yield fname, lang, r
-            # yield r
+        # with ThreadPool(threads) as pool:
+        #     for item in tqdm(pool.imap_unordered(
+        #             process_example, zip(data.path, data.lang), 1)):
+        #         yield item
+        for fname, lang in zip(data.path, data.lang):
+            path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
+            r = process_audio(path, include_raw)
+            yield r
 
     # save spectra with np.save
     if hparams.use_mel:
