@@ -1,5 +1,5 @@
 import sys, os, warnings
-from multiprocessing.pool import ThreadPool
+from multiprocessing.dummy import Pool as ThreadPool
 from collections import defaultdict
 import numpy as np
 import pandas as pd
@@ -187,7 +187,7 @@ def main(
     def gen_spectra(data):
         with ThreadPool(threads) as pool:
             for item in tqdm(pool.imap_unordered(
-                    process_example, zip(data.path, data.lang), 8)):
+                    process_example, zip(data.path, data.lang), 1)):
                 yield item
         # for fname, lang in zip(data.path, data.lang):
             # path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
