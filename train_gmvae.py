@@ -242,6 +242,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             if hparams.clip_long_targets is not None:
                 batch[2] = batch[2][:, :, :hparams.clip_long_targets]
+                batch[3] = batch[3][:, :hparams.clip_long_targets]
 
             start = time.perf_counter()
             for param_group in optimizer.param_groups:
@@ -257,8 +258,6 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 x[4] = x[4].clamp(0, hparams.clip_long_targets)
 
             y_pred, diagnostics = model(x)
-
-            print([y.shape for y in y_pred])
 
             loss = criterion(y_pred, y, x, orig_out_lens)
             if hparams.distributed_run:
