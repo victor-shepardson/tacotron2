@@ -7,7 +7,7 @@ import pickle
 from fire import Fire
 
 import layers
-from hparams import create_hparams
+from hparams import create_hparam   s
 from utils import load_audio_to_torch
 from text.cleaners import multi_cleaners
 
@@ -17,10 +17,11 @@ Assumes waveglow is nested in tacotron2 directory and not the other way around."
 # debug = bool(sys.argv[2]) if len(sys.argv)>2 else False
 
 def main(
-        process_audio=False,
-        single_speaker=None,
-        single_lang=None,
-        remove_noise=False,
+        process_audio=False, # precompute spectra
+        write_wav=False, # also store the trimmed raw audio as .npy
+        single_speaker=None, # use the single given client_id
+        single_lang=None, # use the single given lang code (e.g. 'en')
+        remove_noise=False, # spectral noise removal
         data_root='../data/mozilla_common_voice',
         prefix='mcv', # for output filenames
         whitelist_file=None,#'filelists/mcv_whitelist.pkl'#None
@@ -58,7 +59,10 @@ def main(
 
     if whitelist_file:
         with open(whitelist_file, 'rb') as file:
-            whitelist = pickle.load(file)
+            if whitelist_file.endswith('.pkl'):
+                whitelist = pickle.load(file)
+            else:
+                whitelist = file.readlines()
         speakers = sorted(list(whitelist))
     elif single_speaker:
         prefix += '_'+single_speaker[:4]
@@ -82,7 +86,9 @@ def main(
 
     data = data[data.speaker>=0]
 
-    print(data.shape)
+    # print(data.shape)
+
+    print(f'{len(speaker_map)} speakers')
 
     # if debug:
     #     data = data.sample(200)
@@ -124,8 +130,10 @@ def main(
     def gen_spectra(data, include_raw=False):
         for fname, lang in zip(data.path, data.lang):
             path = f'{data_root}/{lang}/clips/{fname}.mp3'
-            audio = load_audio_to_torch(path, hparams.sampling_rate, wav_scale=False)[0]
-            spect = spect_raw = stft.mel_spectrogram(audio.to(device).unsqueeze(0)).squeeze(0).cpu().numpy()
+            audio = load_audio_to_torch(
+                path, hparams.sampling_rate, wav_scale=False)[0]
+            spect = spect_raw = stft.mel_spectrogram(
+                audio.to(device).unsqueeze(0)).squeeze(0).cpu().numpy()
 
             if spect.shape[-1] < 30:
                 warnings.warn(f'unexpectedly short audio: {path}')
@@ -183,7 +191,8 @@ def main(
                     os.mkdir(path)
 
         for fname, lang, (w, s) in zip(tqdm(data.path), data.lang, gen_spectra(data)):
-            np.save(f'{data_root}/{lang}/wav/{fname}', w)
+            if write_wav:
+                np.save(f'{data_root}/{lang}/wav/{fname}', w)
             np.save(f'{data_root}/{lang}/{spect_dir}/{fname}', s)
 
     # write filelists

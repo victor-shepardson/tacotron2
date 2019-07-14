@@ -498,10 +498,10 @@ class LatentEncoder(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv1d(hparams.n_spect_channels, *convparams),
             nn.ReLU(),
-            nn.BatchNorm1d(hparams.latent_encoder_filters, affine=False),
+            # nn.BatchNorm1d(hparams.latent_encoder_filters, affine=False),
             nn.Conv1d(hparams.latent_encoder_filters, *convparams),
             nn.ReLU(),
-            nn.BatchNorm1d(hparams.latent_encoder_filters, affine=False),
+            # nn.BatchNorm1d(hparams.latent_encoder_filters, affine=False),
         )
         self.recurrence = nn.LSTM(
             hparams.latent_encoder_filters, hparams.latent_encoder_rnn,

@@ -4,6 +4,59 @@ import torch.nn.functional as F
 import torch.distributions as D
 from utils import get_mask_from_lengths
 
+class Tacotron2GMVAELoss(nn.Module):
+    def __init__(self, use_mel=True, cycle_xform=None):
+        super().__init__()
+
+    def forward(self, model_output, targets, x=None):
+        mel_target, gate_target = targets[0], targets[1]
+        mel_target.requires_grad = False
+        gate_target.requires_grad = False
+        gate_target = gate_target.view(-1, 1)
+
+        mel_out, kld_terms, gate_out, alignments = model_output
+        gate_out = gate_out.view(-1, 1)
+
+        device = alignments.device
+
+        attn_loss = 0
+        if x is not None:
+            in_lens, out_lens = x[1], x[4]
+            # batch x out x in
+            i = torch.arange(
+                alignments.shape[1], dtype=torch.float32,
+                device=device)[None, :, None]
+            j = torch.arange(
+                alignments.shape[2], dtype=torch.float32,
+                device=device)[None, None, :]
+            m = get_mask_from_lengths(out_lens, device).float()[:, :, None]
+            s = (in_lens.float() / out_lens.float())[:, None, None]
+            sigma, margin = 30, 10
+            w = 1-torch.exp(-(((j-i*s).abs()-margin).clamp(0)/sigma)**2)
+            attn_loss = (w*alignments*m).sum(2).mean()
+
+        gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
+
+        # ll_loss = -D.Normal(*mel_out).log_prob(mel_target)
+        # mu, sigma = (t.permute(0,2,1) for t in mel_out)
+        # ll_loss = -(
+        #     D.Independent(D.Normal(mu, sigma), 1)
+        #     .log_prob(mel_target.permute(0,2,1)))
+        mu, sigma = mel_out
+        mse_loss = ((mel_target - mu)*sigma).pow(2).mean()
+
+        kld_z, kld_y = kld_terms
+
+        r = dict(
+            gate_loss = gate_loss,
+            attn_loss = attn_loss,
+            mse_loss = mse_loss.mean(),
+            zkl_loss = kld_z.mean(),
+            ykl_loss = kld_y.mean()
+        )
+        # print({k:float(v) for k,v in r.items()})
+        return r
+
 class Tacotron2VAELoss(nn.Module):
     def __init__(self, use_mel=True, cycle_xform=None):
         super().__init__()
@@ -38,10 +91,12 @@ class Tacotron2VAELoss(nn.Module):
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
 
         # ll_loss = -D.Normal(*mel_out).log_prob(mel_target)
-        mu, sigma = (t.permute(0,2,1) for t in mel_out)
-        ll_loss = -(
-            D.Independent(D.Normal(mu, sigma), 1)
-            .log_prob(mel_target.permute(0,2,1)))
+        # mu, sigma = (t.permute(0,2,1) for t in mel_out)
+        # ll_loss = -(
+        #     D.Independent(D.Normal(mu, sigma), 1)
+        #     .log_prob(mel_target.permute(0,2,1)))
+        mu, sigma = mel_out
+        ll_loss = ((mel_target - mu)*sigma).pow(2).mean()
 
         mu, sigma, latent_samples = latents
         # Q = D.Normal(mu, sigma)

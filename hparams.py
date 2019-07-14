@@ -100,6 +100,8 @@ def create_hparams(hparams_string=None, verbose=False):
 
         # VAE parameters
         latent_dim=16,
+        latent_components=10,
+        init_sigma=0.3,
         latent_encoder_filters=256,
         latent_encoder_kernel=3,
         latent_encoder_stride=1,
