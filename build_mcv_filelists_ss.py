@@ -129,7 +129,7 @@ def main(
 
     def gen_spectra(data, include_raw=False):
         for fname, lang in zip(data.path, data.lang):
-            path = f'{data_root}/{lang}/clips/{fname}.mp3'
+            path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
             audio = load_audio_to_torch(
                 path, hparams.sampling_rate, wav_scale=False)[0]
             spect = spect_raw = stft.mel_spectrogram(
