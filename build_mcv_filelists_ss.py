@@ -7,7 +7,7 @@ import pickle
 from fire import Fire
 
 import layers
-from hparams import create_hparam   s
+from hparams import create_hparams
 from utils import load_audio_to_torch
 from text.cleaners import multi_cleaners
 
