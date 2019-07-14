@@ -8,7 +8,7 @@ class Tacotron2GMVAELoss(nn.Module):
     def __init__(self, use_mel=True, cycle_xform=None):
         super().__init__()
 
-    def forward(self, model_output, targets, x=None):
+    def forward(self, model_output, targets, x=None, orig_out_lens=None):
         mel_target, gate_target = targets[0], targets[1]
         mel_target.requires_grad = False
         gate_target.requires_grad = False
@@ -30,7 +30,7 @@ class Tacotron2GMVAELoss(nn.Module):
                 alignments.shape[2], dtype=torch.float32,
                 device=device)[None, None, :]
             m = get_mask_from_lengths(out_lens, device).float()[:, :, None]
-            s = (in_lens.float() / out_lens.float())[:, None, None]
+            s = (in_lens.float() / orig_out_lens.float())[:, None, None]
             sigma, margin = 30, 10
             w = 1-torch.exp(-(((j-i*s).abs()-margin).clamp(0)/sigma)**2)
             attn_loss = (w*alignments*m).sum(2).mean()
