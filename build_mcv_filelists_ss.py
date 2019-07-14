@@ -191,7 +191,7 @@ def main(
         #         yield item
         for fname, lang in zip(data.path, data.lang):
             path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
-            r = process_audio(path, include_raw)
+            r = process_example(path, include_raw)
             yield r
 
     # save spectra with np.save
