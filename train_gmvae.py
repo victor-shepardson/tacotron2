@@ -164,7 +164,7 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         for i, batch in enumerate(val_loader):
             batch = batch[:5]
             x, y = model.parse_batch(batch)
-            y_pred = model(x)
+            y_pred, diagnostics = model(x)
             loss = criterion(y_pred, y)
             if distributed_run:
                 raise NotImplementedError
