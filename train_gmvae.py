@@ -250,6 +250,8 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             model.zero_grad()
             x, y = model.parse_batch(batch)
 
+            x = list(x)
+
             if hparams.clip_long_targets is not None:
                 orig_out_lens = x[4]
                 x[4] = x[4].clamp(0, hparams.clip_long_targets)
@@ -257,7 +259,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             y_pred, diagnostics = model(x)
 
             if hparams.clip_long_targets is not None:
-                x = (None, x[1], None, None, orig_out_lens)
+                x[4] = orig_out_lens
 
             loss = criterion(y_pred, y, x)
             if hparams.distributed_run:
