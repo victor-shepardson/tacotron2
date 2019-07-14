@@ -59,6 +59,9 @@ def main(
 
     data = pd.concat(gen_tables('validated.tsv')).reset_index(drop=True)
 
+    if single_lang:
+        prefix += '_'+single_lang
+
     if whitelist_file:
         with open(whitelist_file, 'rb') as file:
             if whitelist_file.endswith('.pkl'):

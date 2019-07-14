@@ -283,8 +283,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                     reduced_loss, grad_norm, learning_rate, duration, iteration)
                 logger.add_scalars('training.loss', {
                     k:v.item() for k,v in loss.items()}, iteration)
-                logger.add_scalars('diagnostics', {
-                    k:v.item() for k,v in diagnostics.items()}, iteration)
+                logger.add_scalars('diagnostics', diagnostics, iteration)
 
             if not overflow and (iteration % hparams.iters_per_checkpoint == 0):
                 validate(model, criterion, valset, iteration,
