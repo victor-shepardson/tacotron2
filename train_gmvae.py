@@ -239,14 +239,24 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
         print("Epoch: {}".format(epoch))
         for i, batch in enumerate(train_loader):
             batch = batch[:5] #compatibility with conditional model loader
+
+            if hparams.clip_long_targets is not None:
+                batch[2] = batch[2][:, :hparams.clip_long_targets]
+
             start = time.perf_counter()
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate
 
             model.zero_grad()
             x, y = model.parse_batch(batch)
+
+            if hparams.clip_long_targets is not None:
+                orig_out_lens = x[4]
+                x[4] = x[4].clamp(0, hparams.clip_long_targets)
+
             y_pred, diagnostics = model(x)
 
+            x[4] = orig_out_lens
             loss = criterion(y_pred, y, x)
             if hparams.distributed_run:
                 raise NotImplementedError
