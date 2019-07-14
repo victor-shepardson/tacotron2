@@ -258,6 +258,8 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             y_pred, diagnostics = model(x)
 
+            print(y.shape for y in y_pred)
+
             loss = criterion(y_pred, y, x, orig_out_lens)
             if hparams.distributed_run:
                 raise NotImplementedError
