@@ -88,7 +88,7 @@ def main(
 
     # print(data.shape)
 
-    print(f'{len(speaker_map)} speakers')
+    print(f'{len(data.speaker.unique())} speakers')
 
     # if debug:
     #     data = data.sample(200)
