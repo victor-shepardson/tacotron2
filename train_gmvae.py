@@ -256,7 +256,9 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             y_pred, diagnostics = model(x)
 
-            x[4] = orig_out_lens
+            if hparams.clip_long_targets is not None:
+                x[4] = orig_out_lens
+                
             loss = criterion(y_pred, y, x)
             if hparams.distributed_run:
                 raise NotImplementedError
