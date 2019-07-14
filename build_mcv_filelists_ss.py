@@ -184,7 +184,7 @@ def main(
 
         return fname, lang, r
 
-    def gen_spectra(data):
+    def gen_spectra(data, include_raw=False):
         # with ThreadPool(threads) as pool:
         #     for item in tqdm(pool.imap_unordered(
         #             process_example, zip(data.path, data.lang), 1)):
