@@ -241,7 +241,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             batch = batch[:5] #compatibility with conditional model loader
 
             if hparams.clip_long_targets is not None:
-                batch[2] = batch[2][:, :hparams.clip_long_targets]
+                batch[2] = batch[2][:, :, :hparams.clip_long_targets]
 
             start = time.perf_counter()
             for param_group in optimizer.param_groups:
