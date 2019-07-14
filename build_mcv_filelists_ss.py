@@ -1,4 +1,5 @@
 import sys, os, warnings
+from multiprocessing.pool import ThreadPool
 from collections import defaultdict
 import numpy as np
 import pandas as pd
@@ -88,6 +89,7 @@ def main(
 
     # print(data.shape)
 
+    print(f'{len(data)} utterances')
     print(f'{len(data.speaker.unique())} speakers')
 
     # if debug:
@@ -127,56 +129,70 @@ def main(
     #     for d,i in vc2.iteritems():
     #         digraph_freqs_by_lang[lang][d] += i
 
-    def gen_spectra(data, include_raw=False):
-        for fname, lang in zip(data.path, data.lang):
-            path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
-            audio = load_audio_to_torch(
-                path, hparams.sampling_rate, wav_scale=False)[0]
-            spect = spect_raw = stft.mel_spectrogram(
-                audio.to(device).unsqueeze(0)).squeeze(0).cpu().numpy()
+    def process_example(args, include_raw=False):
+        fname, lang = args
+        path = f'{data_root}/{lang}/clips/{fname}'
+        if not path.endswith('.mp3'):
+            path += '.mp3'
+        audio = load_audio_to_torch(
+            path, hparams.sampling_rate, wav_scale=False)[0]
+        spect = spect_raw = stft.mel_spectrogram(
+            audio.to(device).unsqueeze(0)).squeeze(0).cpu().numpy()
 
-            if spect.shape[-1] < 30:
-                warnings.warn(f'unexpectedly short audio: {path}')
+        if spect.shape[-1] < 30:
+            warnings.warn(f'unexpectedly short audio: {path}')
 
-            drop_lf_bands = 3 #ignore noisy low frequency bands when detecting silence
-            peak_range = 3 # range below overall spectral peak for a frame to be considered speech
-            trim = (1, 3) # include frames before, after first/last detected speech
-            noise_quant = (0.03, 0.1) # mean frame intensity quantile to use as noise
-            noise_reduce = 0.7 # fraction of noise to replace with noise_floor
-            noise_floor = 5e-5
+        drop_lf_bands = 3 #ignore noisy low frequency bands when detecting silence
+        peak_range = 3 # range below overall spectral peak for a frame to be considered speech
+        trim = (1, 3) # include frames before, after first/last detected speech
+        noise_quant = (0.03, 0.1) # mean frame intensity quantile to use as noise
+        noise_reduce = 0.7 # fraction of noise to replace with noise_floor
+        noise_floor = 5e-5
 
-            # trim leading/trailing silence
-            spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
-            loud = np.argwhere(
-                (spectral_peaks > np.max(spectral_peaks)-peak_range)
-            ).squeeze()
-            lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
+        # trim leading/trailing silence
+        spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
+        loud = np.argwhere(
+            (spectral_peaks > np.max(spectral_peaks)-peak_range)
+        ).squeeze()
+        lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
 
-            # reduce background noise
-            noise = 0
-            if remove_noise:
-                spectral_mean = np.mean(spect[drop_lf_bands:], axis=0)
-                quiet = np.argwhere((
-                    (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
-                    & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
-                )).squeeze()
-                if quiet.ndim > 0 and len(quiet) > 0:
-                    noise = spect[:, quiet].mean(1, keepdims=True)
+        # reduce background noise
+        noise = 0
+        if remove_noise:
+            spectral_mean = np.mean(spect[drop_lf_bands:], axis=0)
+            quiet = np.argwhere((
+                (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
+                & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
+            )).squeeze()
+            if quiet.ndim > 0 and len(quiet) > 0:
+                noise = spect[:, quiet].mean(1, keepdims=True)
 
-            spect = spect[:, lo:hi]
+        spect = spect[:, lo:hi]
 
-            if remove_noise:
-                spect = np.log(np.maximum(
-                    np.exp(spect) - noise_reduce*np.exp(noise),
-                    noise_floor))
+        if remove_noise:
+            spect = np.log(np.maximum(
+                np.exp(spect) - noise_reduce*np.exp(noise),
+                noise_floor))
 
-            r = [
-                audio[lo*hparams.hop_length:hi*hparams.hop_length],
-                spect
-            ]
-            if include_raw:
-                r.append(spect_raw)
-            yield r
+        r = [
+            audio[lo*hparams.hop_length:hi*hparams.hop_length],
+            spect
+        ]
+        if include_raw:
+            r.append(spect_raw)
+
+        return fname, lang, r
+
+    def gen_spectra(data):
+        with ThreadPool(4) as pool:
+            for item in tqdm(pool.imap_unordered(
+                    process_example, zip(data.path, data.lang), 8)):
+                yield item
+        # for fname, lang in zip(data.path, data.lang):
+            # path = f'{data_root}/{lang}/clips/{fname}'#'.mp3'
+            # r = process_audio(path, include_raw)
+            # yield fname, lang, r
+            # yield r
 
     # save spectra with np.save
     if hparams.use_mel:
@@ -190,7 +206,8 @@ def main(
                 if not os.path.exists(path):
                     os.mkdir(path)
 
-        for fname, lang, (w, s) in zip(tqdm(data.path), data.lang, gen_spectra(data)):
+        # for fname, lang, (w, s) in zip(tqdm(data.path), data.lang, gen_spectra(data)):
+        for fname, lang, (w, s) in gen_spectra(data):
             if write_wav:
                 np.save(f'{data_root}/{lang}/wav/{fname}', w)
             np.save(f'{data_root}/{lang}/{spect_dir}/{fname}', s)
