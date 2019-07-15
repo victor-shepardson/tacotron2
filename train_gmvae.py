@@ -2,9 +2,7 @@
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_train_16.txt',validation_files='filelists/ljs_val_16.txt',batch_size=4,iters_per_checkpoint=10" -c tacotron2_statedict.pt --warm_start
 
 # GPU train:
-# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/ljs_audio_text_train_filelist.txt',validation_files='filelists/ljs_audio_text_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,symbols_embedding_dim=32,encoder_embedding_dim=256" -c tacotron2_statedict.pt --warm_start
-
-# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_en_train_filelist.txt',validation_files='filelists/mcv_en_val_filelist.txt',batch_size=64,iters_per_checkpoint=100,load_spect_from_disk=True" -c tacotron2_statedict.pt --warm_start
+# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=60,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512" -c tacotron2_statedict.pt --warm_start
 
 import os
 import copy

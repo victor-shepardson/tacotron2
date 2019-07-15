@@ -160,9 +160,10 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         convolutions = []
-        for _ in range(hparams.encoder_n_convolutions):
+        for i in range(hparams.encoder_n_convolutions):
+            in_size = hparams.encoder_embedding_dim if i else hparams.symbols_embedding_dim
             conv_layer = nn.Sequential(
-                ConvNorm(hparams.encoder_embedding_dim,
+                ConvNorm(in_size,
                          hparams.encoder_embedding_dim,
                          kernel_size=hparams.encoder_kernel_size, stride=1,
                          padding=int((hparams.encoder_kernel_size - 1) / 2),

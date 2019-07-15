@@ -99,7 +99,7 @@ def create_hparams(hparams_string=None, verbose=False):
         postnet_n_convolutions=5,
 
         # VAE parameters
-        latent_dim=16,
+        latent_dim=8,
         latent_components=10,
         init_sigma=0.3,
         latent_encoder_filters=256,
