@@ -73,8 +73,8 @@ def prepare_dataloaders(hparams):
     return train_loader, valset, collate_fn
 
 
-def prepare_directories_and_logger(output_directory, log_directory, rank):
-    if rank == 0:
+def prepare_directories_and_logger(output_directory, log_directory, primary_device):
+    if primary_device:
         if not os.path.isdir(output_directory):
             os.makedirs(output_directory)
             os.chmod(output_directory, 0o775)
@@ -210,8 +210,11 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     if hparams.distributed_run:
         model = apply_gradient_allreduce(model)
 
+    primary_device = rank==0 or n_gpus<=1
+
+
     logger = prepare_directories_and_logger(
-        output_directory, log_directory, rank)
+        output_directory, log_directory, primary_device)
 
     train_loader, valset, collate_fn = prepare_dataloaders(hparams)
 
@@ -285,7 +288,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             overflow = optimizer.overflow if hparams.fp16_run else False
 
-            if not overflow and not math.isnan(reduced_loss) and rank == 0:
+            if not overflow and not math.isnan(reduced_loss) and primary_device:
                 duration = time.perf_counter() - start
                 print("Train loss {} {:.6f} Grad Norm {:.6f} {:.2f}s/it".format(
                     iteration, reduced_loss, grad_norm, duration))
@@ -299,7 +302,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 validate(model, criterion, valset, iteration,
                          hparams.batch_size, n_gpus, collate_fn, logger,
                          hparams.distributed_run, rank)
-                if rank == 0:
+                if primary_device:
                     checkpoint_path = os.path.join(
                         output_directory, "checkpoint_{}".format(iteration))
                     save_checkpoint(model, optimizer, learning_rate, iteration,
