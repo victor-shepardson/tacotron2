@@ -540,7 +540,7 @@ class Tacotron2(nn.Module):
         self.decoder = Decoder(hparams)
         self.mu = nn.Parameter(torch.randn(
             1, hparams.latent_components, hparams.latent_dim))
-        self.sigma = nn.Parameter(hparams.init_sigma*torch.ones(
+        self.sigma = nn.Parameter(np.log(hparams.init_sigma)*torch.ones(
             1, hparams.latent_components, hparams.latent_dim))
         # self.postnet = Postnet(hparams)
 
@@ -588,7 +588,7 @@ class Tacotron2(nn.Module):
         latents = mu, sigma
 
         q_z = DiagonalNormal(mu[:, None, :], sigma[:, None, :]) # batch x 1 x dim
-        p_z = DiagonalNormal(self.mu, self.sigma.clamp(self.min_sigma_z)) # 1 x components x dim
+        p_z = DiagonalNormal(self.mu, self.sigma.exp().clamp(self.min_sigma_z)) # 1 x components x dim
         Q_y = D.Categorical(logits=p_z.log_prob(sampled_latents[:, None, :])) # batch x components
         P_y = D.Categorical(torch.ones_like(Q_y.probs))
 

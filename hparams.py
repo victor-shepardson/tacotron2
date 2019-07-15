@@ -101,13 +101,13 @@ def create_hparams(hparams_string=None, verbose=False):
         # VAE parameters
         latent_dim=8,
         latent_components=10,
-        init_sigma=0.3,
         latent_encoder_filters=256,
         latent_encoder_kernel=3,
         latent_encoder_stride=1,
         latent_encoder_rnn=512,
-        learn_sigma_x=False,
+        init_sigma=0.3,
         min_sigma_z=0.1,
+        learn_sigma_x=False,
         min_sigma_x=1,
 
         ################################
