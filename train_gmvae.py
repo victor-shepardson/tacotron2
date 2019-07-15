@@ -331,6 +331,9 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true',
                         help='print grad statistics')
 
+    if args.rank > 0:
+        args.checkpoint_path += '.' + str(args.rank)
+
     args = parser.parse_args()
     hparams = create_hparams(args.hparams)
     hparams.gpu = torch.cuda.is_available()
