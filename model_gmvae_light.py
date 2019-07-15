@@ -525,6 +525,7 @@ class LatentEncoder(nn.Module):
 class Tacotron2(nn.Module):
     def __init__(self, hparams):
         super(Tacotron2, self).__init__()
+        self.min_sigma_z = hparams.min_sigma_z
         self.mask_padding = hparams.mask_padding
         self.fp16_run = hparams.fp16_run
         self.n_spect_channels = hparams.n_spect_channels
@@ -587,7 +588,7 @@ class Tacotron2(nn.Module):
         latents = mu, sigma
 
         q_z = DiagonalNormal(mu[:, None, :], sigma[:, None, :]) # batch x 1 x dim
-        p_z = DiagonalNormal(self.mu, self.sigma) # 1 x components x dim
+        p_z = DiagonalNormal(self.mu, self.sigma.clamp(self.min_sigma_z)) # 1 x components x dim
         Q_y = D.Categorical(logits=p_z.log_prob(sampled_latents[:, None, :])) # batch x components
         P_y = D.Categorical(torch.ones_like(Q_y.probs))
 
