@@ -336,7 +336,7 @@ if __name__ == '__main__':
     hparams.gpu = torch.cuda.is_available()
 
     if args.rank > 0:
-        args.checkpoint_path += '.' + str(args.rank)
+        args.output_directory += '.' + str(args.rank)
 
     torch.backends.cudnn.enabled = hparams.cudnn_enabled
     torch.backends.cudnn.benchmark = hparams.cudnn_benchmark
