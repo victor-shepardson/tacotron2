@@ -1,11 +1,11 @@
 # CPU test:
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_train_16.txt',validation_files='filelists/ljs_val_16.txt',batch_size=4,iters_per_checkpoint=10" -c tacotron2_statedict.pt --warm_start
 
-# GPU 0 (sigma exp fix)
-#python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256" -c tacotron2_statedict.pt --warm_start
+# GPU 0 (negative marginal entropy loss)
+#python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,marginal_entropy_weight=1" -c tacotron2_statedict.pt --warm_start
 
-# GPU 1:
-# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256" -c tacotron2_statedict.pt --warm_start
+# GPU 1 (no kld test)
+# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,kld_weight=0" -c tacotron2_statedict.pt --warm_start --rank 1
 
 import os
 import copy

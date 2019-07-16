@@ -52,8 +52,8 @@ class Tacotron2GMVAELoss(nn.Module):
             gate_loss = gate_loss,
             attn_loss = attn_loss,
             mse_loss = mse_loss.mean(),
-            zkl_loss = kld_z.mean(),
-            ykl_loss = kld_y.mean(),
+            zkl_loss = kld_z.mean()*hparams.kld_weight,
+            ykl_loss = kld_y.mean()*hparams.kld_weight,
         )
 
         if hparams.marginal_entropy_weight != 0:

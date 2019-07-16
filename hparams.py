@@ -110,6 +110,7 @@ def create_hparams(hparams_string=None, verbose=False):
         learn_sigma_x=False,
         min_sigma_x=1,
         marginal_entropy_weight=0,
+        kld_weight=1,
 
         ################################
         # Optimization Hyperparameters #
