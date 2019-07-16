@@ -8,7 +8,7 @@ class Tacotron2GMVAELoss(nn.Module):
     def __init__(self, use_mel=True, cycle_xform=None):
         super().__init__()
 
-    def forward(self, model_output, targets, x=None, orig_out_lens=None):
+    def forward(self, hparams, model_output, targets, diagnostics, x=None, orig_out_lens=None):
         mel_target, gate_target = targets[0], targets[1]
         mel_target.requires_grad = False
         gate_target.requires_grad = False
@@ -52,8 +52,13 @@ class Tacotron2GMVAELoss(nn.Module):
             attn_loss = attn_loss,
             mse_loss = mse_loss.mean(),
             zkl_loss = kld_z.mean(),
-            ykl_loss = kld_y.mean()
+            ykl_loss = kld_y.mean(),
         )
+
+        if hparams.marginal_entropy_weight != 0:
+            r['neg_marginal_entropy'] = hparams.marginal_entropy_weight*(
+                np.log(hparams.latent_components) - diagnostics['marginal_ent'])
+
         # print({k:float(v) for k,v in r.items()})
         return r
 

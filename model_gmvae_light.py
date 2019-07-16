@@ -597,8 +597,8 @@ class Tacotron2(nn.Module):
         kld_terms = kld_z, kld_y
 
         diagnostics = {
-            'mean_ent': Q_y.entropy().mean().item(),
-            'marginal_ent': D.Categorical(Q_y.probs.mean(0)).entropy().item()
+            'mean_ent': Q_y.entropy().mean(),
+            'marginal_ent': D.Categorical(Q_y.probs.mean(0)).entropy()
         }
 
         embedded_inputs = self.embedding(inputs).transpose(1, 2)

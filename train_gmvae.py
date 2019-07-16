@@ -1,8 +1,8 @@
 # CPU test:
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_train_16.txt',validation_files='filelists/ljs_val_16.txt',batch_size=4,iters_per_checkpoint=10" -c tacotron2_statedict.pt --warm_start
 
-# GPU 0
-#python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,min_sigma_z=0" -c checkpoint_1700
+# GPU 0 (sigma exp fix)
+#python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256" -c tacotron2_statedict.pt --warm_start
 
 # GPU 1:
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256" -c tacotron2_statedict.pt --warm_start
@@ -151,14 +151,14 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, filepath):
                 'learning_rate': learning_rate}, filepath)
 
 
-def validate(model, criterion, valset, iteration, batch_size, n_gpus,
-             collate_fn, logger, distributed_run, rank):
+def validate(model, criterion, valset, iteration, n_gpus,
+             collate_fn, logger, rank, hparams):
     """Handles all the validation scoring and printing"""
     model.eval()
     with torch.no_grad():
-        val_sampler = DistributedSampler(valset) if distributed_run else None
+        val_sampler = DistributedSampler(valset) if hparams.distributed_run else None
         val_loader = DataLoader(valset, sampler=val_sampler, num_workers=1,
-                                shuffle=False, batch_size=batch_size,
+                                shuffle=False, batch_size=hparams.batch_size,
                                 pin_memory=False, collate_fn=collate_fn)
 
         val_loss = 0.0
@@ -166,8 +166,8 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
             batch = batch[:5]
             x, y = model.parse_batch(batch)
             y_pred, diagnostics = model(x)
-            loss = criterion(y_pred, y)
-            if distributed_run:
+            loss = criterion(hparams, y_pred, y, diagnostics)
+            if hparams.distributed_run:
                 raise NotImplementedError
             else:
                 reduced_val_loss = sum(loss.values()).item()
@@ -263,7 +263,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             y_pred, diagnostics = model(x)
 
-            loss = criterion(y_pred, y, x, orig_out_lens)
+            loss = criterion(hparams, y_pred, y, diagnostics, x, orig_out_lens)
             if hparams.distributed_run:
                 raise NotImplementedError
             else:
@@ -299,12 +299,12 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                     reduced_loss, grad_norm, learning_rate, duration, iteration)
                 logger.add_scalars('training.loss', {
                     k:v.item() for k,v in loss.items()}, iteration)
-                logger.add_scalars('diagnostics', diagnostics, iteration)
+                logger.add_scalars('diagnostics', {
+                    k:v.item() for k,v in diagnostics.items()}, iteration)
 
             if not overflow and (iteration % hparams.iters_per_checkpoint == 0):
                 validate(model, criterion, valset, iteration,
-                         hparams.batch_size, n_gpus, collate_fn, logger,
-                         hparams.distributed_run, rank)
+                         n_gpus, collate_fn, logger, rank, hparams)
                 if primary_device:
                     checkpoint_path = os.path.join(
                         output_directory, "checkpoint_{}".format(iteration))
