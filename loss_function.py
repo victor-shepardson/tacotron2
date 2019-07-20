@@ -49,15 +49,15 @@ class Tacotron2GMVAELoss(nn.Module):
         kld_z, kld_y = kld_terms
 
         r = dict(
-            gate_loss = gate_loss,
-            attn_loss = attn_loss,
-            mse_loss = mse_loss.mean(),
-            zkl_loss = kld_z.mean()*hparams.kld_weight,
-            ykl_loss = kld_y.mean()*hparams.kld_weight,
+            gate_loss = gate_loss*hparams.gate_weight,
+            attn_loss = attn_loss*hparams.attn_weight,
+            mse_loss = mse_loss.mean()*hparams.mse_weight,
+            zkl_loss = kld_z.mean()*hparams.zkld_weight,
+            ykl_loss = kld_y.mean()*hparams.ykld_weight,
         )
 
-        if hparams.marginal_entropy_weight != 0:
-            r['neg_marginal_entropy'] = hparams.marginal_entropy_weight*(
+        if hparams.marginal_ykld_weight != 0:
+            r['mykl_loss'] = hparams.marginal_ykld_weight*(
                 np.log(hparams.latent_components) - diagnostics['marginal_ent'])
 
         # print({k:float(v) for k,v in r.items()})
