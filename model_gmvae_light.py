@@ -570,7 +570,7 @@ class Tacotron2(nn.Module):
 
             # mel mu, sigma
             outputs[0][0].data.masked_fill_(mask, 0.0)
-            outputs[0][1].data.masked_fill_(mask, 0.0)#1e-10)
+            outputs[0][1].data.masked_fill_(mask, 1.0) #sigma irrelevant when mu is masked
             # gate logit
             outputs[2].data.masked_fill_(mask[:, 0, :], 1e3)
 
@@ -645,6 +645,12 @@ class Tacotron2(nn.Module):
             [mel_outputs, latents, gate_outputs, alignments])
 
         return outputs
+
+    def sample_prior(self, n):
+        k = torch.randint(self.mu.shape[1], size=(n,))
+        mu, sigma = self.mu[0, k, :], self.sigma[0, k, :]
+        p_z = DiagonalNormal(mu, sigma.exp().clamp(self.min_sigma_z))
+        return p_z.sample()
 
     # def apply_postnet(self, spect):
     #     return spect + self.postnet(spect)

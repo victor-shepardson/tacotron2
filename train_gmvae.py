@@ -1,11 +1,11 @@
 # CPU test:
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_train_16.txt',validation_files='filelists/ljs_val_16.txt',batch_size=4,iters_per_checkpoint=10" -c tacotron2_statedict.pt --warm_start
 
-# GPU 0 (negative marginal entropy loss)
-#python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=100,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,marginal_entropy_weight=1" -c tacotron2_statedict.pt --warm_start
+# GPU 0 (marginal ykl, fewer params, large mse+gate weight)
+#python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=60,iters_per_checkpoint=1000,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,decoder_rnn_dim=512,prenet_dim=128,mse_weight=10,gate_weight=10,marginal_ykld_weight=1,ykld_weight=0"
 
-# GPU 1 (no kld test)
-# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=50,iters_per_checkpoint=300,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,kld_weight=0" -c tacotron2_statedict.pt --warm_start --rank 1
+# GPU 1 (no zkld test)
+# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=60,iters_per_checkpoint=1000,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,decoder_rnn_dim=512,prenet_dim=128,mse_weight=10,gate_weight=10,marginal_ykld_weight=1,ykld_weight=0,zkld_weight=0" --rank 1
 
 import os
 import copy
@@ -14,6 +14,7 @@ import argparse
 import math
 from numpy import finfo
 import itertools as it
+from collections import defaultdict
 
 import torch
 from distributed import apply_gradient_allreduce
@@ -151,8 +152,8 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, filepath):
                 'learning_rate': learning_rate}, filepath)
 
 
-def validate(model, criterion, valset, iteration, n_gpus,
-             collate_fn, logger, rank, hparams):
+def validate(model, criterion, valset, iteration,
+             collate_fn, logger, primary_device, hparams):
     """Handles all the validation scoring and printing"""
     model.eval()
     with torch.no_grad():
@@ -161,24 +162,48 @@ def validate(model, criterion, valset, iteration, n_gpus,
                                 shuffle=False, batch_size=hparams.batch_size,
                                 pin_memory=False, collate_fn=collate_fn)
 
-        val_loss = 0.0
+        val_losses = defaultdict(float)
         for i, batch in enumerate(val_loader):
             batch = batch[:5]
             x, y = model.parse_batch(batch)
             y_pred, diagnostics = model(x)
-            loss = criterion(hparams, y_pred, y, diagnostics)
-            if hparams.distributed_run:
-                raise NotImplementedError
-            else:
-                reduced_val_loss = sum(loss.values()).item()
-            val_loss += reduced_val_loss
-        val_loss = val_loss / (i + 1)
+            if i==0:
+                logger.log_multi('force', y, y_pred, iteration)
+
+            loss_components = criterion(hparams, y_pred, y, diagnostics)
+            for c in loss_components:
+                val_losses[c] += loss_components[c].item()/len(val_loader)
+
+        reduced_val_loss = sum(val_losses.values())
+
+        if primary_device:
+            print("Validation loss {}: {:9f}  ".format(iteration, reduced_val_loss))
+            y_pred[1] = y_pred[0][0]
+            logger.log_validation(reduced_val_loss, model, y, y_pred, iteration)
+            logger.add_scalars('validation.loss', val_losses, iteration)
+
+        for i, batch in enumerate(val_loader):
+            # no teacher forcing
+            x, y = model.parse_batch(batch[:5])
+            text, _, target, _, lengths = x
+
+            mel, latents, gate, alignments = model.inference(
+                text, reference=target, reference_lengths=lengths,
+                temperature=0, use_gate=False)
+            y_pred = mel, None, gate, alignments
+            logger.log_multi('noforce', y, y_pred, iteration)
+
+            prior_latents = model.sample_prior(len(text))
+            mel, _, gate, alignments = model.inference(
+                text, latents=prior_latents, temperature=0, use_gate=False)
+            y_pred = mel, None, gate, alignments
+
+            logger.log_multi('noref', y, y_pred, iteration)
+
+            break
+
 
     model.train()
-    if rank == 0:
-        print("Validation loss {}: {:9f}  ".format(iteration, reduced_val_loss))
-        y_pred[1] = y_pred[0][0]
-        logger.log_validation(reduced_val_loss, model, y, y_pred, iteration)
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
@@ -195,6 +220,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     hparams (object): comma separated list of "name=value" pairs.
     """
     if hparams.distributed_run:
+        raise NotImplementedError
         init_distributed(hparams, n_gpus, rank, group_name)
     elif n_gpus==1:
         torch.cuda.set_device(rank)
@@ -203,6 +229,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     torch.cuda.manual_seed(hparams.seed)
 
     model = load_model(hparams)
+
     learning_rate = hparams.learning_rate
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
                                  weight_decay=hparams.weight_decay)
@@ -214,7 +241,6 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
         model = apply_gradient_allreduce(model)
 
     primary_device = rank==0 or n_gpus<=1
-
 
     logger = prepare_directories_and_logger(
         output_directory, log_directory, primary_device)
@@ -257,8 +283,8 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             x = list(x)
 
+            orig_out_lens = x[4]
             if hparams.clip_long_targets is not None:
-                orig_out_lens = x[4]
                 x[4] = x[4].clamp(0, hparams.clip_long_targets)
 
             y_pred, diagnostics = model(x)
@@ -304,7 +330,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             if not overflow and (iteration % hparams.iters_per_checkpoint == 0):
                 validate(model, criterion, valset, iteration,
-                         n_gpus, collate_fn, logger, rank, hparams)
+                         collate_fn, logger, primary_device, hparams)
                 if primary_device:
                     checkpoint_path = os.path.join(
                         output_directory, "checkpoint_{}".format(iteration))

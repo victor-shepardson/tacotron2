@@ -20,7 +20,7 @@ class Tacotron2GMVAELoss(nn.Module):
 
         device = alignments.device
 
-        attn_loss = 0
+        attn_loss = torch.tensor(0)
         if x is not None:
             in_lens, out_lens = x[1], x[4]
             # batch x out x in
@@ -44,7 +44,7 @@ class Tacotron2GMVAELoss(nn.Module):
         #     D.Independent(D.Normal(mu, sigma), 1)
         #     .log_prob(mel_target.permute(0,2,1)))
         mu, sigma = mel_out
-        mse_loss = ((mel_target - mu)*sigma).pow(2).mean()
+        mse_loss = ((mel_target - mu)/sigma).pow(2).mean()
 
         kld_z, kld_y = kld_terms
 

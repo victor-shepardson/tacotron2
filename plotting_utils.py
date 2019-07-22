@@ -2,13 +2,115 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pylab as plt
 import numpy as np
+import scipy.stats
+from matplotlib.colors import PowerNorm, SymLogNorm, Normalize
 
 
-def save_figure_to_numpy(fig):
-    # save it to a numpy array.
+def to_pixels(fig):
+    fig.canvas.draw()
     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = np.transpose(data, (2, 0, 1))
+    plt.close()
     return data
+
+def signed_rank(x):
+    r = scipy.stats.rankdata(np.abs(x), method='dense').reshape(x.shape)
+    return (r-1)/(r.max()-1) * np.sign(x)
+
+def plot_multi(
+        mel, attn, gate,
+        text=None, encoding=None, target=None,
+        trim=True, delta=True):
+    fig = plt.figure(figsize=(13, 8))
+
+    assert trim==(text is not None)
+
+    if trim:
+        text = text[:(text > 0).sum()]
+        if encoding is not None:
+            encoding = encoding[:len(text)]
+        nframes = (mel>0).any(1).sum()
+        if target is not None:
+            # nframes = min((target>0).any(1).sum(), nframes)
+            nframes = min(max(len(target), len(mel)), max((target>0).any(1).sum(), nframes))
+            target = target[:nframes]
+        mel = mel[:nframes]
+        attn = attn[:nframes, :len(text)]
+        gate = gate[:nframes]
+
+    ax = [
+        plt.axes([0.2, 0.95, 0.7, 0.05]),
+        plt.axes([0.2, 0.4, 0.7, 0.55]),
+        plt.axes([0.2, 0.2, 0.7, 0.2]),
+        plt.axes([0.2, 0.0, 0.7, 0.2]),
+        plt.axes([0.01, 0.4, 0.18, 0.55])
+    ]
+    cb_ax = [
+        plt.axes([0.9, 0.4, 0.01, 0.55]),
+        # plt.axes([0.9, 0.0, 0.01, 0.2])
+    ]
+
+    g0 = ax[0].bar(np.ones_like(gate).cumsum(), gate, width=1)
+    g1 = ax[1].imshow(attn.T,
+        origin='lower', aspect='auto', norm=PowerNorm(0.25, 0, 1), cmap='magma')
+    g2 = ax[2].imshow(mel.T,
+        origin='lower', aspect='auto', norm=PowerNorm(1, -12, 2), cmap='magma')
+    if target is not None:
+        if delta:
+            g3 = ax[3].imshow(np.abs(target.T - mel.T),
+                origin='lower', aspect='auto',
+                norm=PowerNorm(.5, 0, 10), cmap='magma')
+        else:
+            g3 = ax[3].imshow(target.T,
+                origin='lower', aspect='auto',
+                norm=PowerNorm(1, -12, 2), cmap='magma')
+    else:
+        g3 = None
+
+    if encoding is not None:
+        g4 = ax[4].imshow(signed_rank(encoding), norm=Normalize(-1, 1),
+            origin='lower', aspect='auto', cmap='Spectral')
+
+    cb = [plt.colorbar(g, cax=a) for g,a in zip([g1, g3], cb_ax)]
+
+    for a in ax[:2]:
+        a.set_xticks([])
+
+    ax[0].set_yticks([])
+    ax[0].set_ylim((0,1))
+    ax[0].set_xlim((0,len(mel)))
+
+    if text is not None:
+        ax[1].set_yticks(np.arange(len(text)))
+        ax[1].set_yticklabels(text)
+        ax[1].tick_params(length=0, labelrotation=90, labelsize=7, pad=0.5)
+
+    ax[2].set_yticks([])
+    ax[2].set_xticks([])
+    ax[2].set_ylabel('output')
+
+    ax[3].set_yticks([])
+    ax[3].tick_params(length=0, pad=1, labelsize=8)
+    ax[3].set_ylabel('|target - output|' if delta else 'target')
+
+    ax[4].set_yticks([])
+    ax[4].set_title('encoding')
+    ax[4].tick_params(length=0, pad=3, labelsize=8)
+
+    cb[0].set_ticks(np.linspace(0, 1, 6)**2)
+    cb_ax[0].tick_params(length=0, pad=1, labelsize=8)
+
+    # cb[1].set_ticks([])
+    # cb_ax[1].tick_params(length=0, pad=1, labelsize=8)
+
+    return fig
+
+# def save_figure_to_numpy(fig):
+#     # save it to a numpy array.
+#     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+#     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+#     return data
 
 
 def plot_alignment_to_numpy(alignment, info=None):
@@ -23,11 +125,12 @@ def plot_alignment_to_numpy(alignment, info=None):
     plt.ylabel('Encoder timestep')
     plt.tight_layout()
 
-    fig.canvas.draw()
-    data = save_figure_to_numpy(fig)
-    plt.close()
-    # return data
-    return np.transpose(data, (2, 0, 1))
+    return to_pixels(fig)
+    # fig.canvas.draw()
+    # data = save_figure_to_numpy(fig)
+    # plt.close()
+    # # return data
+    # return np.transpose(data, (2, 0, 1))
 
 def plot_alignments_to_numpy(alignments, info=None):
     w, h = 4, 4
@@ -58,11 +161,12 @@ def plot_spectrogram_to_numpy(spectrogram):
     plt.ylabel("Channels")
     plt.tight_layout()
 
-    fig.canvas.draw()
-    data = save_figure_to_numpy(fig)
-    plt.close()
-    # return data
-    return np.transpose(data, (2, 0, 1))
+    return to_pixels(fig)
+    # fig.canvas.draw()
+    # data = save_figure_to_numpy(fig)
+    # plt.close()
+    # # return data
+    # return np.transpose(data, (2, 0, 1))
 
 
 
@@ -77,8 +181,9 @@ def plot_gate_outputs_to_numpy(gate_targets, gate_outputs):
     plt.ylabel("Gate State")
     plt.tight_layout()
 
-    fig.canvas.draw()
-    data = save_figure_to_numpy(fig)
-    plt.close()
-    # return data
-    return np.transpose(data, (2, 0, 1))
+    return to_pixels(fig)
+    # fig.canvas.draw()
+    # data = save_figure_to_numpy(fig)
+    # plt.close()
+    # # return data
+    # return np.transpose(data, (2, 0, 1))

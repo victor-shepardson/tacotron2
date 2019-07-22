@@ -101,21 +101,21 @@ def create_hparams(hparams_string=None, verbose=False):
         # VAE parameters
         latent_dim=8,
         latent_components=10,
-        latent_encoder_filters=256,
-        latent_encoder_kernel=3,
+        latent_encoder_filters=128,
+        latent_encoder_kernel=5,
         latent_encoder_stride=1,
-        latent_encoder_rnn=512,
+        latent_encoder_rnn=256,
         init_sigma=0.3,
         min_sigma_z=0.1,
         learn_sigma_x=False,
         min_sigma_x=1,
 
         # loss parameters
-        mse_weight=1000,
-        gate_weight=10,
+        mse_weight=1,
+        gate_weight=1,
         attn_weight=1,
-        marginal_ykld_weight=1,
-        ykld_weight=0,
+        marginal_ykld_weight=0,
+        ykld_weight=1,
         zkld_weight=1,
 
         ################################
