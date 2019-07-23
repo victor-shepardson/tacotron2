@@ -32,8 +32,7 @@ class Tacotron2GMVAELoss(nn.Module):
                 device=device)[None, None, :]
             m = get_mask_from_lengths(out_lens, device).float()[:, :, None]
             s = (in_lens.float() / orig_out_lens.float())[:, None, None]
-            sigma, margin = 30, 10
-            w = 1-torch.exp(-(((j-i*s).abs()-margin).clamp(0)/sigma)**2)
+            w = 1-torch.exp(-(((j-i*s).abs()-hparams.attn_margin).clamp(0)/hparams.attn_sigma)**2)
             attn_loss = (w*alignments*m).sum(2).mean()
 
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)

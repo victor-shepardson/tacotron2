@@ -114,6 +114,8 @@ def create_hparams(hparams_string=None, verbose=False):
         mse_weight=1,
         gate_weight=1,
         attn_weight=1,
+        attn_margin=20,
+        attn_sigma=40,
         marginal_ykld_weight=0,
         ykld_weight=1,
         zkld_weight=1,
