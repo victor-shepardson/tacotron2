@@ -38,9 +38,7 @@ class Tacotron2GMVAELoss(nn.Module):
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
 
         mu, sigma = mel_out
-        print(sigma.shape, (sigma<0).any())
         ll_loss = -D.Normal(mu, sigma).log_prob(mel_target)
-        print(ll_loss.shape)
         ll_loss = ll_loss.masked_select((sigma!=0)).mean()
         # mu, sigma = (t.permute(0,2,1) for t in mel_out)
         # ll_loss = -(
@@ -49,17 +47,17 @@ class Tacotron2GMVAELoss(nn.Module):
         # mu, sigma = mel_out
         # mse_loss = ((mel_target - mu)/sigma).pow(2).mean()
 
-
-
         kld_z, kld_y = kld_terms
 
         r = dict(
             gate_loss = gate_loss*hparams.gate_weight,
             attn_loss = attn_loss*hparams.attn_weight,
-            mse_loss = ll_loss.mean()*hparams.mse_weight,
+            mse_loss = ll_loss*hparams.mse_weight,
             zkl_loss = kld_z.mean()*hparams.zkld_weight,
             ykl_loss = kld_y.mean()*hparams.ykld_weight,
         )
+
+        print(r)
 
         if hparams.marginal_ykld_weight != 0:
             r['mykl_loss'] = hparams.marginal_ykld_weight*(
