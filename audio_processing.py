@@ -21,11 +21,14 @@ def get_spectrum(stft, hparams, path, device='cpu',
         warnings.warn(f'unexpectedly short audio: {path}')
 
     # trim leading/trailing silence
-    spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
-    loud = np.argwhere(
-        (spectral_peaks > np.max(spectral_peaks)-peak_range)
-    ).squeeze()
-    lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
+    if trim is not None and trim!=False:
+        spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
+        loud = np.argwhere(
+            (spectral_peaks > np.max(spectral_peaks)-peak_range)
+        ).squeeze()
+        lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
+    else:
+        lo, hi = 0, spect.shape[1]
 
     # reduce background noise
     noise = 0

@@ -31,6 +31,7 @@ def main(
         max_speakers_per_lang=None,
         hparams='',
         device='cpu',
+        use_all_female=False,
         # threads=1 # soundfile seems not-threadsafe
     ):
     langs = [
@@ -58,6 +59,7 @@ def main(
             yield data
 
     data = pd.concat(gen_tables('validated.tsv')).reset_index(drop=True)
+    print(data.columns)
 
     if single_lang:
         prefix += '_'+single_lang
@@ -77,11 +79,14 @@ def main(
     else:
         # convert client_id to speaker id and discard infrequent speakers
         # limit max speakers per lang so overrepresented langs dont cause underrepresented speakers with stratified sampling by lang
+        f_ids = data[data.gender=='female'].client_id.unique()
+        if use_all_female:
+            print(f'including {len(f_ids)} client ids with female voices')
         speakers = np.unique([
             id for _, g in data.groupby('lang')
             for i, (id, count) in enumerate(g.client_id.value_counts().iteritems())
-            if count >= min_speaker_samples and (
-                max_speakers_per_lang is None or i < max_speakers_per_lang)
+            if (count >= min_speaker_samples or (use_all_female and (id in f_ids)))
+                and (max_speakers_per_lang is None or i < max_speakers_per_lang)
         ])
 
     speaker_map = defaultdict(lambda: -1)
