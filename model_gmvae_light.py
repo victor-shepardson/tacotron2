@@ -358,6 +358,7 @@ class Decoder(nn.Module):
         mu = mel_outputs
         if self.learn_sigma_x:
             sigma = F.softplus(self.out_logsigma)+self.min_sigma_x
+            sigma = sigma.expand(mu.shape[0], *sigma.shape)
         else:
             sigma = torch.ones_like(mel_outputs)*self.min_sigma_x
 
@@ -579,7 +580,7 @@ class Tacotron2(nn.Module):
 
             # mel mu, sigma
             outputs[0][0].data.masked_fill_(mask, 0.0)
-            outputs[0][1].data.masked_fill_(mask, 0.0) 
+            outputs[0][1].data.masked_fill_(mask, 0.0)
             # gate logit
             outputs[2].data.masked_fill_(mask[:, 0, :], 1e3)
 
