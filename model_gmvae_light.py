@@ -574,12 +574,12 @@ class Tacotron2(nn.Module):
     def parse_output(self, outputs, output_lengths=None):
         if self.mask_padding and output_lengths is not None:
             mask = ~get_mask_from_lengths(output_lengths)
-            mask = mask.expand(self.n_spect_channels, mask.size(0), mask.size(1))
-            mask = mask.permute(1, 0, 2)
+            mask = mask[:,None,:]#mask.expand(self.n_spect_channels, mask.size(0), mask.size(1))
+            # mask = mask.permute(1, 0, 2)
 
             # mel mu, sigma
             outputs[0][0].data.masked_fill_(mask, 0.0)
-            outputs[0][1].data.masked_fill_(mask, 1.0) #sigma irrelevant when mu is masked
+            outputs[0][1].data.masked_fill_(mask, 0.0) 
             # gate logit
             outputs[2].data.masked_fill_(mask[:, 0, :], 1e3)
 

@@ -39,7 +39,7 @@ class Tacotron2GMVAELoss(nn.Module):
 
         mu, sigma = mel_out
         ll_loss = -D.Normal(mu, sigma).log_prob(mel_target)
-        ll_loss = ll_loss.masked_select((mu!=0).all(1, keepdims=True)).mean()
+        ll_loss = ll_loss.masked_select((sigma!=0)).mean()
         # mu, sigma = (t.permute(0,2,1) for t in mel_out)
         # ll_loss = -(
         #     D.Independent(D.Normal(mu, sigma), 1)
