@@ -21,7 +21,7 @@ def main(
         process_audio=False, # precompute spectra
         write_wav=False, # also store the trimmed raw audio as .npy
         remove_noise=False, # spectral noise removal
-        data_root='../data/LJSpeech-1.1',
+        data_root='../data/ljs/LJSpeech-1.1',
         prefix='ljs', # for output filenames
         val_size=100,
         hparams='',
