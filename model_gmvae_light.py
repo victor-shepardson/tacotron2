@@ -358,7 +358,7 @@ class Decoder(nn.Module):
         mu = mel_outputs
         if self.learn_sigma_x:
             sigma = F.softplus(self.out_logsigma)+self.min_sigma_x
-            sigma = sigma.expand(mu.shape[0], *sigma.shape)
+            sigma = sigma.expand(mu.shape[0], *sigma.shape[1:])
         else:
             sigma = torch.ones_like(mel_outputs)*self.min_sigma_x
 
