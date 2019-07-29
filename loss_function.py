@@ -38,6 +38,7 @@ class Tacotron2GMVAELoss(nn.Module):
         gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
 
         mu, sigma = mel_out
+        print(sigma)
         ll_loss = -D.Normal(mu, sigma).log_prob(mel_target)
         ll_loss = ll_loss.masked_select((sigma!=0)).mean()
         # mu, sigma = (t.permute(0,2,1) for t in mel_out)
