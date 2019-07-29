@@ -38,7 +38,7 @@ def load_audio_to_torch(full_path, sampling_rate, limit=True, wav_scale=True):
     return torch.from_numpy(data).float(), sampling_rate
 
 
-def load_filepaths_and_text(filename, split="|"):
+def load_filepaths_and_text(filenames, split="|"):
     filepaths_and_text = []
     if isinstance(filenames, str) or isinstance(filenames, Path):
         filenames = [filenames]
