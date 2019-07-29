@@ -357,8 +357,7 @@ class Decoder(nn.Module):
         """single frame of outputs -> mu, sigma"""
         mu = mel_outputs
         if self.learn_sigma_x:
-            print(self.out_logsigma)
-            sigma = self.out_logsigma.exp()+self.min_sigma_x
+            sigma = self.out_logsigma.exp().clamp(self.min_sigma_x)
             sigma = sigma.expand(mu.shape[0], *sigma.shape[1:])
         else:
             sigma = torch.ones_like(mel_outputs)*self.min_sigma_x
