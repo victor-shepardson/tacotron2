@@ -2,7 +2,54 @@ import torch
 import numpy as np
 from scipy.signal import get_window
 import librosa.util as librosa_util
+from utils import load_audio_to_torch
 
+def get_spectrum(stft, hparams, path, device='cpu',
+        drop_lf_bands=3, #ignore noisy low frequency bands when detecting silence
+        peak_range=3, # range below overall spectral peak for a frame to be considered speech
+        trim=(1, 3), # include frames before, after first/last detected speech
+        noise_quant=(0.03, 0.1), # mean frame intensity quantile to use as noise
+        noise_reduce=0.7, # fraction of noise to replace with noise_floor
+        noise_floor=5e-5,
+        remove_noise=False):
+    audio = load_audio_to_torch(
+        path, hparams.sampling_rate, wav_scale=False)[0]
+    spect = spect_raw = stft.mel_spectrogram(
+        audio.to(device).unsqueeze(0)).squeeze(0).cpu().numpy()
+
+    if spect.shape[-1] < 30:
+        warnings.warn(f'unexpectedly short audio: {path}')
+
+    # trim leading/trailing silence
+    spectral_peaks = np.max(spect[drop_lf_bands:], axis=0)
+    loud = np.argwhere(
+        (spectral_peaks > np.max(spectral_peaks)-peak_range)
+    ).squeeze()
+    lo, hi = max(0, loud[0]-trim[0]), min(spect.shape[1], loud[-1]+trim[1])
+
+    # reduce background noise
+    noise = 0
+    if remove_noise:
+        spectral_mean = np.mean(spect[drop_lf_bands:], axis=0)
+        quiet = np.argwhere((
+            (spectral_mean < np.quantile(spectral_mean, noise_quant[1]))
+            & (spectral_mean > np.quantile(spectral_mean, noise_quant[0]))
+        )).squeeze()
+        if quiet.ndim > 0 and len(quiet) > 0:
+            noise = spect[:, quiet].mean(1, keepdims=True)
+
+    spect = spect[:, lo:hi]
+
+    if remove_noise:
+        spect = np.log(np.maximum(
+            np.exp(spect) - noise_reduce*np.exp(noise),
+            noise_floor))
+
+    return {
+        'audio': audio[lo*hparams.hop_length:hi*hparams.hop_length],
+        'spect': spect,
+        'spect_raw': spect_raw
+    }
 
 def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
                      n_fft=800, dtype=np.float32, norm=None):

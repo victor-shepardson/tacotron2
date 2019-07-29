@@ -20,16 +20,14 @@ def signed_rank(x):
 
 def plot_multi(
         mel, attn, gate,
-        text=None, encoding=None, target=None,
+        text=None, target=None,
         trim=True, delta=True):
-    fig = plt.figure(figsize=(13, 8))
+    fig = plt.figure(figsize=(12, 6+2*int(target is not None)))
 
     assert trim==(text is not None)
 
     if trim:
         text = text[:(text > 0).sum()]
-        if encoding is not None:
-            encoding = encoding[:len(text)]
         nframes = (mel>0).any(1).sum()
         if target is not None:
             # nframes = min((target>0).any(1).sum(), nframes)
@@ -39,38 +37,41 @@ def plot_multi(
         attn = attn[:nframes, :len(text)]
         gate = gate[:nframes]
 
-    ax = [
-        plt.axes([0.2, 0.95, 0.7, 0.05]),
-        plt.axes([0.2, 0.4, 0.7, 0.55]),
-        plt.axes([0.2, 0.2, 0.7, 0.2]),
-        plt.axes([0.2, 0.0, 0.7, 0.2]),
-        plt.axes([0.01, 0.4, 0.18, 0.55])
-    ]
+    if target is not None:
+        ax = [
+            plt.axes([0.05, 0.95, 0.9, 0.05]),
+            plt.axes([0.05, 0.4, 0.9, 0.55]),
+            plt.axes([0.05, 0.2, 0.9, 0.2]),
+            plt.axes([0.05, 0.0, 0.9, 0.2]),
+        ]
+    else:
+        ax = [
+            plt.axes([0.05, 0.95, 0.9, 0.05]),
+            plt.axes([0.05, 0.3, 0.9, 0.65]),
+            plt.axes([0.05, 0.0, 0.9, 0.3]),
+        ]
     cb_ax = [
-        plt.axes([0.9, 0.4, 0.01, 0.55]),
+        plt.axes([0.95, 0.4, 0.01, 0.55]),
         # plt.axes([0.9, 0.0, 0.01, 0.2])
     ]
+    cmap = 'viridis'
 
     g0 = ax[0].bar(np.ones_like(gate).cumsum(), gate, width=1)
     g1 = ax[1].imshow(attn.T,
-        origin='lower', aspect='auto', norm=PowerNorm(0.25, 0, 1), cmap='magma')
+        origin='lower', aspect='auto', norm=PowerNorm(0.25, 0, 1), cmap=cmap)
     g2 = ax[2].imshow(mel.T,
-        origin='lower', aspect='auto', norm=PowerNorm(1, -12, 2), cmap='magma')
+        origin='lower', aspect='auto', norm=PowerNorm(1, -12, 2), cmap=cmap)
     if target is not None:
         if delta:
             g3 = ax[3].imshow(np.abs(target.T - mel.T),
                 origin='lower', aspect='auto',
-                norm=PowerNorm(.5, 0, 10), cmap='magma')
+                norm=PowerNorm(.5, 0, 10), cmap=cmap)
         else:
             g3 = ax[3].imshow(target.T,
                 origin='lower', aspect='auto',
-                norm=PowerNorm(1, -12, 2), cmap='magma')
+                norm=PowerNorm(1, -12, 2), cmap=cmap)
     else:
         g3 = None
-
-    if encoding is not None:
-        g4 = ax[4].imshow(signed_rank(encoding), norm=Normalize(-1, 1),
-            origin='lower', aspect='auto', cmap='Spectral')
 
     cb = [plt.colorbar(g, cax=a) for g,a in zip([g1, g3], cb_ax)]
 
@@ -90,13 +91,10 @@ def plot_multi(
     ax[2].set_xticks([])
     ax[2].set_ylabel('output')
 
-    ax[3].set_yticks([])
-    ax[3].tick_params(length=0, pad=1, labelsize=8)
-    ax[3].set_ylabel('|target - output|' if delta else 'target')
-
-    ax[4].set_yticks([])
-    ax[4].set_title('encoding')
-    ax[4].tick_params(length=0, pad=3, labelsize=8)
+    if target is not None:
+        ax[3].set_yticks([])
+        ax[3].tick_params(length=0, pad=1, labelsize=8)
+        ax[3].set_ylabel('|target - output|' if delta else 'target')
 
     cb[0].set_ticks(np.linspace(0, 1, 6)**2)
     cb_ax[0].tick_params(length=0, pad=1, labelsize=8)

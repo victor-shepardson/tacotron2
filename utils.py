@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 from scipy.io.wavfile import read as wavread
 from librosa.core import load as audioread
@@ -38,10 +39,14 @@ def load_audio_to_torch(full_path, sampling_rate, limit=True, wav_scale=True):
 
 
 def load_filepaths_and_text(filename, split="|"):
-    with open(filename, encoding='utf-8') as f:
-        filepaths_and_text = [line.strip().split(split) for line in f]
-    filepaths_and_text = [
-        [os.path.expanduser(hd)]+tl for hd, *tl in filepaths_and_text]
+    filepaths_and_text = []
+    if isinstance(filenames, str) or isinstance(filenames, Path):
+        filenames = [filenames]
+    for filename in filenames:
+        with open(filename, encoding='utf-8') as f:
+            lines = [line.strip().split(split) for line in f]
+        filepaths_and_text.extend([
+            [os.path.expanduser(hd)]+tl for hd, *tl in lines])
     return filepaths_and_text
 
 

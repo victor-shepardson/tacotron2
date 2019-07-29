@@ -295,6 +295,11 @@ class Decoder(nn.Module):
         self.mask = mask
         self.latents = latents
 
+    def get_latents(self, t):
+        if isinstance(self.latents, tuple):
+            return self.latents[1]*t + self.latents[0]*(1-t)
+        return self.latents
+
     def parse_decoder_inputs(self, decoder_inputs):
         """ Prepares decoder inputs, i.e. mel outputs
         PARAMS
@@ -359,7 +364,7 @@ class Decoder(nn.Module):
 
         return mel_outputs
 
-    def decode(self, decoder_input):
+    def decode(self, decoder_input, time_step):
         """ Decoder step using stored states, attention and memory
         PARAMS
         ------
@@ -371,8 +376,9 @@ class Decoder(nn.Module):
         gate_output: gate output energies
         attention_weights:
         """
+        t = 0.5 - 0.5*np.cos(min(1, time_step / 500)*np.pi)
         cell_input = torch.cat((
-            decoder_input, self.attention_context, self.latents), -1)
+            decoder_input, self.attention_context, self.get_latents(t)), -1)
         self.attention_hidden = self.attention_rnn(
             cell_input, self.attention_hidden)
         self.attention_hidden = F.dropout(
@@ -428,13 +434,15 @@ class Decoder(nn.Module):
             memory, latents, mask=~get_mask_from_lengths(memory_lengths))
 
         mel_outputs, gate_outputs, alignments = [], [], []
+        i = 0
         while len(mel_outputs) < decoder_inputs.size(0) - 1:
             decoder_input = decoder_inputs[len(mel_outputs)]
             mel_output, gate_output, attention_weights = self.decode(
-                decoder_input)
+                decoder_input, i)
             mel_outputs += [mel_output]
             gate_outputs += [gate_output]
             alignments += [attention_weights]
+            i+=1
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
             mel_outputs, gate_outputs, alignments)
@@ -459,9 +467,10 @@ class Decoder(nn.Module):
         self.initialize_decoder_states(memory, latents, mask=None)
 
         mel_outputs, gate_outputs, alignments = [], [], []
+        i=0
         while True:
             decoder_input = self.prenet(decoder_input)
-            (mu, sigma), gate_output, alignment = self.decode(decoder_input)
+            (mu, sigma), gate_output, alignment = self.decode(decoder_input, i)
 
             mel_output = D.Normal(mu, sigma*temperature).sample()
 
@@ -476,6 +485,7 @@ class Decoder(nn.Module):
                 break
 
             decoder_input = mel_output
+            i += 1
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
             mel_outputs, gate_outputs, alignments)
@@ -612,14 +622,14 @@ class Tacotron2(nn.Module):
             output_lengths), diagnostics
 
     def inference(self, inputs, reference=None, latents=None,
-            use_gate=True, reference_lengths=None, temperature=1):
+            use_gate=True, reference_lengths=None, temperature=1, latent_temperature=1):
         assert (reference is None) != (latents is None)
 
         encoder_outputs = self.encode(inputs)
 
         if latents is None:
-            latents = self.encode_reference(reference, reference_lengths)
-            latents = D.Normal(*latents).sample()
+            mu, sigma = self.encode_reference(reference, reference_lengths)
+            latents = D.Normal(mu, latent_temperature*sigma).sample()
 
         return self.decode(encoder_outputs, latents,
             use_gate=use_gate, temperature=temperature)
@@ -646,11 +656,16 @@ class Tacotron2(nn.Module):
 
         return outputs
 
-    def sample_prior(self, n):
-        k = torch.randint(self.mu.shape[1], size=(n,))
-        mu, sigma = self.mu[0, k, :], self.sigma[0, k, :]
-        p_z = DiagonalNormal(mu, sigma.exp().clamp(self.min_sigma_z))
-        return p_z.sample()
+    def sample_prior(self, n, y=None, z=None, temperature=1):
+        if y is None:
+            y = torch.randint(self.mu.shape[1], size=(n,))
+        mu, sigma = (
+            self.mu[0, y, :], self.sigma[0, y, :].exp().clamp(self.min_sigma_z))
+        if z is None:
+            p_z = DiagonalNormal(mu, temperature*sigma)
+            return p_z.sample()
+        else:
+            return mu + z*sigma
 
     # def apply_postnet(self, spect):
     #     return spect + self.postnet(spect)
