@@ -11,9 +11,10 @@ class HParams(object):
     def parse(self, s):
         d = eval('dict('+s+')')
         for k,v in d.items():
+            setattr(self, k, v)
         # for line in s.split(','):
             # k, v = line.split('=')
-            setattr(self, k, eval(v))
+            # setattr(self, k, eval(v))
 
     @property
     def n_spect_channels(self):
