@@ -35,14 +35,16 @@ class Tacotron2GMVAELoss(nn.Module):
             w = 1-torch.exp(-(((j-i*s).abs()-hparams.attn_margin).clamp(0)/hparams.attn_sigma)**2)
             attn_loss = (w*alignments*m).sum(2).mean()
 
-        gate_loss = nn.BCEWithLogitsLoss()(gate_out, gate_target)
+        gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)/gate_out.shape[0]
 
         mu, sigma = mel_out
         # ll_loss = -D.Normal(mu, sigma).log_prob(mel_target)
         # ll_loss = ll_loss.masked_select((sigma!=0)).mean()
         ll_loss = -D.Normal(
             mu.masked_select((sigma!=0)), sigma.masked_select((sigma!=0))
-            ).log_prob(mel_target.masked_select((sigma!=0))).mean()
+            ).log_prob(mel_target.masked_select((sigma!=0)))
+
+        ll_loss = ll_loss.sum()/ll_loss.shape[0]
 
         # mu, sigma = (t.permute(0,2,1) for t in mel_out)
         # ll_loss = -(
