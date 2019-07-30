@@ -9,7 +9,7 @@ class HParams(object):
             setattr(self, k, v)
 
     def parse(self, s):
-        d = eval('{'+s+'}')
+        d = eval('dict('+s+')')
         for k,v in d.items():
         # for line in s.split(','):
             # k, v = line.split('=')
