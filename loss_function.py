@@ -19,6 +19,7 @@ class Tacotron2GMVAELoss(nn.Module):
         gate_out = gate_out.view(-1, 1)
 
         batch_size = mel_target.shape[0]
+        print(batch_size)
 
         device = alignments.device
 
