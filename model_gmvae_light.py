@@ -468,8 +468,10 @@ class Decoder(nn.Module):
         """
         decoder_input = self.get_go_frame(memory)
 
-        self.initialize_decoder_states(
-            memory, latents, mask=~get_mask_from_lengths(memory_lengths))
+        mask = (
+            None if memory_lengths is None
+            else ~get_mask_from_lengths(memory_lengths))
+        self.initialize_decoder_states(memory, latents, mask=mask)
 
         mel_outputs, gate_outputs, alignments = [], [], []
         i=0
