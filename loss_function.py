@@ -47,7 +47,7 @@ class Tacotron2GMVAELoss(nn.Module):
 
             mse_loss = mse_loss.sum()/batch_size
         else:
-            mse_loss = ((mel_target - mu)/sigma).pow(2).mean()
+            mse_loss = (mel_target - mu).pow(2).mean()
 
         kld_z, kld_y = kld_terms
 
