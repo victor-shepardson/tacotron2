@@ -193,17 +193,18 @@ def validate(model, criterion, valset, iteration,
         for i, batch in enumerate(val_loader):
             # no teacher forcing
             x, y = model.parse_batch(batch[:5])
-            text, _, target, _, lengths = x
+            text, in_lengths, target, _, lengths = x
 
             mel, latents, gate, alignments = model.inference(
                 text, reference=target, reference_lengths=lengths,
-                temperature=0, use_gate=False)
+                input_lengths=in_lengths, temperature=0, use_gate=False)
             y_pred = mel, None, gate, alignments
             logger.log_multi('noforce', y, y_pred, iteration)
 
             prior_latents = model.sample_prior(len(text))
-            mel, _, gate, alignments = model.inference(
-                text, latents=prior_latents, temperature=0, use_gate=False)
+            mel, in_lengths, gate, alignments = model.inference(
+                text, latents=prior_latents, input_lengths=in_lengths,
+                temperature=0, use_gate=False)
             y_pred = mel, None, gate, alignments
 
             logger.log_multi('noref', y, y_pred, iteration)

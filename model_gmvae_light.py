@@ -195,7 +195,10 @@ class Encoder(nn.Module):
 
         return outputs
 
-    def inference(self, x):
+    def inference(self, x, lengths=None):
+        if lengths is not None:
+            return self.forward(x, lengths)
+
         for conv in self.convolutions:
             x = F.dropout(F.relu(conv(x)), 0.5, self.training)
 
@@ -622,7 +625,7 @@ class Tacotron2(nn.Module):
             output_lengths), diagnostics
 
     def inference(self, inputs, reference=None, latents=None,
-            use_gate=True, reference_lengths=None, temperature=1, latent_temperature=1):
+            use_gate=True, input_lengths=None, reference_lengths=None, temperature=1, latent_temperature=1):
         assert (reference is None) != (latents is None)
 
         encoder_outputs = self.encode(inputs)
@@ -640,10 +643,10 @@ class Tacotron2(nn.Module):
         mu, sigma = self.latent_encoder(reference, reference_lengths)
         return mu, sigma
 
-    def encode(self, inputs):
+    def encode(self, inputs, input_lengths=None):
         inputs = self.parse_input(inputs)
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
-        return self.encoder.inference(embedded_inputs)
+        return self.encoder.inference(embedded_inputs, input_lengths)
 
     def decode(self, encoder_outputs, latents,
             use_gate=True, temperature=1):
