@@ -638,7 +638,7 @@ class Tacotron2(nn.Module):
             mu, sigma = self.encode_reference(reference, reference_lengths)
             latents = D.Normal(mu, latent_temperature*sigma).sample()
 
-        return self.decode(encoder_outputs, latents,
+        return self.decode(encoder_outputs, latents, input_lengths=input_lengths,
             use_gate=use_gate, temperature=temperature)
 
     def encode_reference(self, reference, reference_lengths=None):
