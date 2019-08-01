@@ -452,7 +452,8 @@ class Decoder(nn.Module):
 
         return mel_outputs, gate_outputs, alignments
 
-    def inference(self, memory, latents, use_gate=True, temperature=1):
+    def inference(self, memory, latents, use_gate=True, temperature=1,
+            memory_lengths=None):
         """ Decoder inference
         PARAMS
         ------
@@ -467,7 +468,8 @@ class Decoder(nn.Module):
         """
         decoder_input = self.get_go_frame(memory)
 
-        self.initialize_decoder_states(memory, latents, mask=None)
+        self.initialize_decoder_states(
+            memory, latents, mask=~get_mask_from_lengths(memory_lengths))
 
         mel_outputs, gate_outputs, alignments = [], [], []
         i=0
@@ -649,10 +651,10 @@ class Tacotron2(nn.Module):
         return self.encoder.inference(embedded_inputs, input_lengths)
 
     def decode(self, encoder_outputs, latents,
-            use_gate=True, temperature=1):
+            use_gate=True, temperature=1, input_lengths=None):
         mel_outputs, gate_outputs, alignments = self.decoder.inference(
             encoder_outputs, latents,
-            use_gate=use_gate, temperature=temperature)
+            use_gate=use_gate, temperature=temperature, memory_lengths=input_lengths)
 
         outputs = self.parse_output(
             [mel_outputs, latents, gate_outputs, alignments])
