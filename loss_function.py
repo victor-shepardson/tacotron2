@@ -40,27 +40,21 @@ class Tacotron2GMVAELoss(nn.Module):
         gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)/batch_size
 
         mu, sigma = mel_out
-        # ll_loss = -D.Normal(mu, sigma).log_prob(mel_target)
-        # ll_loss = ll_loss.masked_select((sigma!=0)).mean()
-        ll_loss = -D.Normal(
-            mu.masked_select((sigma!=0)), sigma.masked_select((sigma!=0))
-            ).log_prob(mel_target.masked_select((sigma!=0)))
+        if hparams.use_logprob:
+            mse_loss = -D.Normal(
+                mu.masked_select((sigma!=0)), sigma.masked_select((sigma!=0))
+                ).log_prob(mel_target.masked_select((sigma!=0)))
 
-        ll_loss = ll_loss.sum()/batch_size
-
-        # mu, sigma = (t.permute(0,2,1) for t in mel_out)
-        # ll_loss = -(
-        #     D.Independent(D.Normal(mu, sigma), 1)
-        #     .log_prob(mel_target.permute(0,2,1)))
-        # mu, sigma = mel_out
-        # mse_loss = ((mel_target - mu)/sigma).pow(2).mean()
+            mse_loss = mse_loss.sum()/batch_size
+        else:
+            mse_loss = ((mel_target - mu)/sigma).pow(2).mean()
 
         kld_z, kld_y = kld_terms
 
         r = dict(
             gate_loss = gate_loss*hparams.gate_weight,
             attn_loss = attn_loss*hparams.attn_weight,
-            mse_loss = ll_loss*hparams.mse_weight,
+            mse_loss = mse_loss*hparams.mse_weight,
             zkl_loss = kld_z.mean()*hparams.zkld_weight,
             ykl_loss = kld_y.mean()*hparams.ykld_weight,
         )

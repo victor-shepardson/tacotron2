@@ -122,6 +122,7 @@ def create_hparams(hparams_string=None, verbose=False):
         marginal_ykld_weight=0,
         ykld_weight=1,
         zkld_weight=1,
+        use_logprob=True,
 
         ################################
         # Optimization Hyperparameters #
