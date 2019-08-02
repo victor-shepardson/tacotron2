@@ -1,11 +1,11 @@
 # TODO:
-# but will wait to see if full covariance is useful?
+# full covariance is useful?
 
 # CPU test:
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_train_16.txt',validation_files='filelists/ljs_val_16.txt',batch_size=4,iters_per_checkpoint=10" -c tacotron2_statedict.pt --warm_start
 
 # GPU 0 (new dataset, standard kl loss, learnable output variance, loss summed over time)
-# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files=['filelists/mcv_en_train_filelist.txt','filelists/vctk_train_filelist.txt','filelists/ljs_train_filelist.txt'],validation_files=['filelists/mcv_en_val_filelist.txt','filelists/vctk_val_filelist.txt','filelists/ljs_val_filelist.txt'],batch_size=64,iters_per_checkpoint=1000,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,decoder_rnn_dim=512,prenet_dim=128,mse_weight=1,gate_weight=1,marginal_ykld_weight=0,ykld_weight=1,learn_sigma_x=True,min_sigma_x=0.03"
+# python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files=['filelists/mcv_en_train_filelist.txt','filelists/vctk_train_filelist.txt','filelists/ljs_train_filelist.txt'],validation_files=['filelists/mcv_en_val_filelist.txt','filelists/vctk_val_filelist.txt','filelists/ljs_val_filelist.txt'],batch_size=64,iters_per_checkpoint=1000,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,decoder_rnn_dim=512,prenet_dim=128,mse_weight=1,gate_weight=1,marginal_ykld_weight=0,ykld_weight=1,learn_sigma_x=True,min_sigma_x=0.03,latent_dim=0.3"
 
 ## GPU 0 (marginal ykl, fewer params, large mse+gate weight)
 ## python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 1 --hparams "training_files='filelists/mcv_train_filelist.txt',validation_files='filelists/mcv_val_filelist.txt',batch_size=60,iters_per_checkpoint=1000,load_spect_from_disk=True,clip_long_targets=512,symbols_embedding_dim=32,encoder_embedding_dim=256,decoder_rnn_dim=512,prenet_dim=128,mse_weight=10,gate_weight=10,marginal_ykld_weight=1,ykld_weight=0,latent_encoder_filters=256,latent_encoder_kernel=3,latent_encoder_rnn=512"

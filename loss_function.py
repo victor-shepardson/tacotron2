@@ -48,7 +48,8 @@ class Tacotron2GMVAELoss(nn.Module):
 
         mu, sigma = mel_out
         if x is not None:
-            mu, sigma, mel_target = t.masked_select(m) for t in (mu, sigma, mel_target)
+            mu, sigma, mel_target = (
+                t.masked_select(m) for t in (mu, sigma, mel_target))
         if hparams.use_logprob:
             # mask = (sigma!=0)
             # mse_loss = -D.Normal(
