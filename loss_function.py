@@ -47,11 +47,10 @@ class Tacotron2GMVAELoss(nn.Module):
             gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)
 
         mu, sigma = mel_out
-        if x is not None:
-            print(m.shape, mu.shape, sigma.shape, mel_target.shape)
+        if hparams.use_logprob:
+            m = sigma!=0
             mu, sigma, mel_target = (
                 t.masked_select(m) for t in (mu, sigma, mel_target))
-        if hparams.use_logprob:
             # mask = (sigma!=0)
             # mse_loss = -D.Normal(
                 # mu.masked_select(mask), sigma.masked_select(mask)
