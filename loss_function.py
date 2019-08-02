@@ -48,6 +48,7 @@ class Tacotron2GMVAELoss(nn.Module):
 
         mu, sigma = mel_out
         if x is not None:
+            print(m.shape, mu.shape, sigma.shape, mel_target.shape)
             mu, sigma, mel_target = (
                 t.masked_select(m) for t in (mu, sigma, mel_target))
         if hparams.use_logprob:
