@@ -1,7 +1,5 @@
 # TODO:
-# get VCTK and LJ corpora onto server
-# run all three preprocessing scripts
-# start a new run with learn_sigma_x, all three datasets
+# but will wait to see if full covariance is useful?
 
 # CPU test:
 # python train_gmvae.py -o ./checkpoints -l ./logs --n_gpus 0 --hparams "training_files='filelists/ljs_train_16.txt',validation_files='filelists/ljs_val_16.txt',batch_size=4,iters_per_checkpoint=10" -c tacotron2_statedict.pt --warm_start

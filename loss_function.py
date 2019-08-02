@@ -35,16 +35,26 @@ class Tacotron2GMVAELoss(nn.Module):
             m = get_mask_from_lengths(out_lens, device).float()[:, :, None]
             s = (in_lens.float() / orig_out_lens.float())[:, None, None]
             w = 1-torch.exp(-(((j-i*s).abs()-hparams.attn_margin).clamp(0)/hparams.attn_sigma)**2)
-            attn_loss = (w*alignments*m).sum(2).mean()
+            attn_loss = (w*alignments*m)
+            if hparams.use_logprob:
+                attn_loss = attn_loss.mean(0).sum()
+            else:
+                attn_loss = attn_loss.sum(2).mean()
 
-        gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)/batch_size
+        if hparams.use_logprob:
+            gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)/batch_size
+        else:
+            gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)
 
         mu, sigma = mel_out
+        if x is not None:
+            mu, sigma, mel_target = t.masked_select(m) for t in (mu, sigma, mel_target)
         if hparams.use_logprob:
-            mse_loss = -D.Normal(
-                mu.masked_select((sigma!=0)), sigma.masked_select((sigma!=0))
-                ).log_prob(mel_target.masked_select((sigma!=0)))
-
+            # mask = (sigma!=0)
+            # mse_loss = -D.Normal(
+                # mu.masked_select(mask), sigma.masked_select(mask)
+                # ).log_prob(mel_target.masked_select(mask))
+            mse_loss = -D.Normal(mu, sigma).log_prob(mel_target)
             mse_loss = mse_loss.sum()/batch_size
         else:
             mse_loss = (mel_target - mu).pow(2).mean()
