@@ -193,15 +193,17 @@ class Encoder(nn.Module):
         x = x.transpose(1, 2)
 
         # pytorch tensor are not reversible, hence the conversion
-        input_lengths = input_lengths.cpu().numpy()
-        x = nn.utils.rnn.pack_padded_sequence(
-            x, input_lengths, batch_first=True)
+        if input_lengths is not None:
+            input_lengths = input_lengths.cpu().numpy()
+            x = nn.utils.rnn.pack_padded_sequence(
+                x, input_lengths, batch_first=True)
 
         # self.rnn.flatten_parameters()
         outputs, _ = self.rnn(x)
 
-        outputs, _ = nn.utils.rnn.pad_packed_sequence(
-            outputs, batch_first=True)
+        if input_lengths is not None:
+            outputs, _ = nn.utils.rnn.pad_packed_sequence(
+                outputs, batch_first=True)
 
         if self.skip_rnn:
             outputs = outputs + self.skipconv(x_skip).transpose(1, 2)
@@ -209,19 +211,7 @@ class Encoder(nn.Module):
         return outputs
 
     def inference(self, x, lengths=None):
-        if lengths is not None:
-            return self.forward(x, lengths)
-
-        for conv in self.convolutions:
-            x = F.dropout(F.relu(conv(x)), 0.5, self.training)
-
-        x = x.transpose(1, 2)
-
-        # self.rnn.flatten_parameters()
-        outputs, _ = self.rnn(x)
-
-        return outputs
-
+        return self.forward(x, lengths)
 
 class Decoder(nn.Module):
     def __init__(self, hparams):
