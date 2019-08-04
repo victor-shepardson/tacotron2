@@ -46,7 +46,7 @@ class Tacotron2GMVAELoss(nn.Module):
         else:
             gate_loss = nn.BCEWithLogitsLoss(reduction='sum')(gate_out, gate_target)
 
-        mu, sigma = mel_out
+        mu, sigma = mel_out # batch x channels x out
         if hparams.use_logprob:
             m = sigma!=0
             mu, sigma, mel_target = (

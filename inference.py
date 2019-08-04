@@ -76,7 +76,7 @@ def main(text, textfile=None, lines=None, words=None, chars=None,
         draft (bool): Use fast Griffin-Lim vocoder instead of WaveGlow.
         model (str): select which model to use.
             single speaker models: 'nvidia_lj', 'mcv_6506', 'mcv_9ff9', 'mcv_c49c'.
-            multi speaker models: 'mcv_8_97'.
+            multi speaker models: 'mcv_8_97', 'gmvae_mcv_en'
         model_dir (str): root directory for `tacotron_path` and `waveglow_path`.
         tacotron_file (str): override path to tacotron weights (relative to model_dir).
         waveglow_file (str): override path to waveglow weights (relative to model_dir).
@@ -86,7 +86,7 @@ def main(text, textfile=None, lines=None, words=None, chars=None,
     use_gpu = False
     glow_temperature = 0.666
     ss_models = ['nvidia_lj', 'mcv_6506', 'mcv_c49c', 'mcv_9ff9']
-    ms_models = ['mcv_8_97']
+    ms_models = ['mcv_8_97', 'gmvae_mcv_en']
 
     if text is None and textfile is None:
         raise ValueError('must supply either text or textfile')
@@ -163,6 +163,16 @@ def main(text, textfile=None, lines=None, words=None, chars=None,
         hparams.symbols_embedding_dim = 448
         hparams.encoder_n_convolutions = 4
         hparams.text_cleaners = ['transliteration_cleaners']
+        waveglow_file = waveglow_file or 'waveglow_mcv.pt'
+    elif model=='gmvae_mcv_en':
+        from model_gmvae_light import Tacotron2
+        tacotron_file = tacotron_file or 'tacotron2_gmvae_mcv_en.pt'
+        hparams.latent_dim = 8
+        hparams.symbols_embedding_dim = 32
+        hparams.encoder_embedding_dim = 256
+        hparams.decoder_rnn_dim = 512
+        hparams.prenet_dim = 128
+        hparams.text_cleaners = ['english_cleaners']
         waveglow_file = waveglow_file or 'waveglow_mcv.pt'
     else:
         raise ValueError('unknown model')
@@ -242,6 +252,10 @@ def main(text, textfile=None, lines=None, words=None, chars=None,
         with torch.no_grad():
             _, spect, _, _ = tacotron.decode(
                 encoded, spk_emb, lang_emb, use_gate=(decoder_steps is None))
+
+    elif model=='gmvae_mcv_en':
+        pass
+        #TODO
 
 
     # #### pitch and time modulation

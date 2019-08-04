@@ -172,13 +172,23 @@ class Encoder(nn.Module):
             convolutions.append(conv_layer)
         self.convolutions = nn.ModuleList(convolutions)
 
-        self.rnn = nn.GRU(hparams.encoder_embedding_dim,
-                            int(hparams.encoder_embedding_dim / 2), 1,
-                            batch_first=True, bidirectional=True)
+        self.rnn = nn.GRU(
+            hparams.encoder_embedding_dim,
+            hparams.encoder_embedding_dim//2, 1,
+            batch_first=True, bidirectional=True)
+
+        self.skip_rnn = hparams.skip_rnn
+        if self.skip_rnn:
+            s = hparams.encoder_embedding_dim
+            self.skipconv = ConvNorm(s, s,
+                kernel_size=1, stride=1, padding=0, dilation=1,
+                w_init_gain='relu')
 
     def forward(self, x, input_lengths):
         for conv in self.convolutions:
             x = F.dropout(F.relu(conv(x)), 0.5, self.training)
+
+        x_skip = x
 
         x = x.transpose(1, 2)
 
@@ -192,6 +202,9 @@ class Encoder(nn.Module):
 
         outputs, _ = nn.utils.rnn.pad_packed_sequence(
             outputs, batch_first=True)
+
+        if self.skip_rnn:
+            outputs = outputs + self.skipconv(x_skip).transpose(1, 2)
 
         return outputs
 
@@ -234,24 +247,24 @@ class Decoder(nn.Module):
             [hparams.prenet_dim, hparams.prenet_dim])
 
         self.attention_rnn = nn.GRUCell(
-            hparams.prenet_dim + hparams.encoder_embedding_dim + hparams.latent_dim,
+            hparams.prenet_dim + self.encoder_embedding_dim + hparams.latent_dim,
             hparams.attention_rnn_dim)
 
         self.attention_layer = Attention(
-            hparams.attention_rnn_dim, hparams.encoder_embedding_dim,
+            hparams.attention_rnn_dim, self.encoder_embedding_dim,
             hparams.attention_dim, hparams.attention_location_n_filters,
             hparams.attention_location_kernel_size)
 
         self.decoder_rnn = nn.GRUCell(
-            hparams.attention_rnn_dim + hparams.encoder_embedding_dim,
+            hparams.attention_rnn_dim + self.encoder_embedding_dim,
             hparams.decoder_rnn_dim, 1)
 
         self.linear_projection = LinearNorm(
-            hparams.decoder_rnn_dim + hparams.encoder_embedding_dim,
+            hparams.decoder_rnn_dim + self.encoder_embedding_dim,
             hparams.n_spect_channels * hparams.n_frames_per_step)
 
         self.gate_layer = LinearNorm(
-            hparams.decoder_rnn_dim + hparams.encoder_embedding_dim, 1,
+            hparams.decoder_rnn_dim + self.encoder_embedding_dim, 1,
             bias=True, w_init_gain='sigmoid')
 
     def get_go_frame(self, memory):
@@ -300,8 +313,12 @@ class Decoder(nn.Module):
         self.latents = latents
 
     def get_latents(self, t):
+        """if latents is a tuple, linear interpolation by t.
+        else if latents has a time dimension, index by t."""
         if isinstance(self.latents, tuple):
             return self.latents[1]*t + self.latents[0]*(1-t)
+        elif self.latents.dim() > 2:
+            return self.latents[:, min(t, self.latents.shape[1]-1)]
         return self.latents
 
     def parse_decoder_inputs(self, decoder_inputs):
@@ -379,7 +396,7 @@ class Decoder(nn.Module):
         gate_output: gate output energies
         attention_weights:
         """
-        t = 0.5 - 0.5*np.cos(min(1, time_step / 500)*np.pi)
+        t = time_step#0.5 - 0.5*np.cos(min(1, time_step / 500)*np.pi)
         cell_input = torch.cat((
             decoder_input, self.attention_context, self.get_latents(t)), -1)
         self.attention_hidden = self.attention_rnn(
@@ -663,7 +680,7 @@ class Tacotron2(nn.Module):
 
         return outputs
 
-    def sample_prior(self, n, y=None, z=None, temperature=1):
+    def sample_prior(self, n=None, y=None, z=None, temperature=1):
         if y is None:
             y = torch.randint(self.mu.shape[1], size=(n,))
         mu, sigma = (

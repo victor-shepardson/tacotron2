@@ -76,6 +76,7 @@ def create_hparams(hparams_string=None, verbose=False):
         encoder_kernel_size=5,
         encoder_n_convolutions=3,
         encoder_embedding_dim=512,
+        skip_rnn=False,
 
         # Decoder parameters
         n_frames_per_step=1,  # currently only 1 is supported
@@ -109,7 +110,7 @@ def create_hparams(hparams_string=None, verbose=False):
         latent_encoder_stride=1,
         latent_encoder_rnn=256,
         init_sigma=0.3,
-        min_sigma_z=0.1,
+        min_sigma_z=0.03,
         learn_sigma_x=False,
         min_sigma_x=1,
 
