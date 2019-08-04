@@ -509,6 +509,7 @@ class Decoder(nn.Module):
 class LatentEncoder(nn.Module):
     def __init__(self, hparams):
         super().__init__()
+        self.stride = hparams.latent_encoder_stride
         convparams = (
             hparams.latent_encoder_filters,
             hparams.latent_encoder_kernel,
@@ -530,15 +531,16 @@ class LatentEncoder(nn.Module):
             hparams.latent_dim*2)
 
     def forward(self, spect, lengths):
+        lengths = lengths//(self.stride**2)
+        spect = spect[:,:,:lengths.max()*self.stride**2]
         x = self.conv(spect).permute(0,2,1)
-
         x = nn.utils.rnn.pack_padded_sequence(
             x, lengths, batch_first=True, enforce_sorted=False)
         x, _ = self.recurrence(x)
         x, _ = nn.utils.rnn.pad_packed_sequence(
             x, batch_first=True)
 
-        x = self.projection(x.sum(1))/lengths.float()[:,None]
+        x = self.projection(x.sum(1)/lengths.float()[:,None])
         # print(x.shape)
         mu, sigma = x.chunk(2, dim=1)
         # sigma = sigma.exp() + np.exp(-3)
